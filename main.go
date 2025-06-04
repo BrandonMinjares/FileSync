@@ -9,7 +9,9 @@ import (
 )
 
 func main() {
-	// Print current directory
+	updateDB()
+	addFileToDB()
+
 	cwd, _ := os.Getwd()
 	fmt.Println("Current working dir:", cwd)
 
@@ -33,7 +35,16 @@ func main() {
 					fmt.Println("File created:", event.Name)
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					fmt.Println("File modified:", event.Name)
+					info, err := os.Stat(event.Name)
+					if err != nil {
+						fmt.Println("Error:", err)
+						return
+					}
+
+					fmt.Println("File Name:", info.Name())
+					fmt.Println("Size (bytes):", info.Size())
+					fmt.Println("Last Modified:", info.ModTime())
+
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					fmt.Println("File deleted:", event.Name)
@@ -53,6 +64,7 @@ func main() {
 	// Add the folder to watcher
 	fmt.Println("Watching folder: ./tmp")
 	err = watcher.Add("./tmp")
+
 	if err != nil {
 		log.Fatal("Failed to add watcher:", err)
 	}
