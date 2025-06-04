@@ -1,16 +1,40 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"log"
 	"os"
-
-	"github.com/fsnotify/fsnotify"
+	"strings"
 )
 
 func main() {
-	updateDB()
-	addFileToDB()
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print(`
+	Would you like to:
+	1. Create a new bucket
+	2. Add a folder to a bucket
+	3. Connect to a new user
+	> `)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	switch input {
+	case "1":
+		fmt.Print(`
+		What would you like the bucket name to be?`)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		CreateBucket("my.db", input)
+
+	default:
+		fmt.Println("Invalid selection. Exiting.")
+		return
+	}
+}
+
+/***
+updateDB()
 
 	cwd, _ := os.Getwd()
 	fmt.Println("Current working dir:", cwd)
@@ -69,7 +93,7 @@ func main() {
 		log.Fatal("Failed to add watcher:", err)
 	}
 	fmt.Println("Successfully watching ./tmp")
-
+	addFileToDB("/tmp/test.txt")
 	// Block main from exiting
 	<-make(chan struct{})
-}
+**/
