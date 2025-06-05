@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 
-	// Create a new SHA-256 hasher
-
+	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -30,6 +30,29 @@ func CreateBucket(dbPath, bucketName string) error {
 		return nil
 	})
 	return err
+}
+
+func AddFolderToBucket(dbPath, directory string) error {
+	db, err := bolt.Open(dbPath, 0600, nil)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+
+	err = watcher.Add(directory)
+	if err != nil {
+		log.Fatal("Failed to add watcher:", err)
+	}
+
+	fmt.Printf("Successfully watching %s\n", directory)
+
+	return nil
 }
 
 /*

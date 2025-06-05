@@ -36,3 +36,25 @@ func TestCreateBucket(t *testing.T) {
 		t.Fatalf("failed to view DB: %v", err)
 	}
 }
+
+func TestAddFolderToBucket(t *testing.T) {
+	// Create temp DB
+	tmpDB, err := os.CreateTemp("", "test.db")
+	if err != nil {
+		t.Fatalf("Failed to create temp DB: %v", err)
+	}
+	defer os.Remove(tmpDB.Name())
+
+	// Create temp dir
+	tmpDir, err := os.MkdirTemp("", "testdirectory")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Run the function
+	err = AddFolderToBucket(tmpDB.Name(), tmpDir)
+	if err != nil {
+		t.Fatalf("AddFolderToBucket failed: %v", err)
+	}
+}
