@@ -26,7 +26,17 @@ func main() {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		CreateBucket("my.db", input)
+	case "2":
+		fmt.Print(`
+		What folder would you like to add?`)
+		folder, _ := reader.ReadString('\n')
+		folder = strings.TrimSpace(folder)
 
+		fmt.Print(`
+		To which bucket?`)
+		bucket, _ := reader.ReadString('\n')
+		bucket = strings.TrimSpace(bucket)
+		AddFolderToBucket("my.db", folder, bucket)
 	default:
 		fmt.Println("Invalid selection. Exiting.")
 		return
@@ -34,7 +44,6 @@ func main() {
 }
 
 /***
-updateDB()
 
 	cwd, _ := os.Getwd()
 	fmt.Println("Current working dir:", cwd)
@@ -85,15 +94,6 @@ updateDB()
 		}
 	}()
 
-	// Add the folder to watcher
-	fmt.Println("Watching folder: ./tmp")
-	err = watcher.Add("./tmp")
-
-	if err != nil {
-		log.Fatal("Failed to add watcher:", err)
-	}
-	fmt.Println("Successfully watching ./tmp")
-	addFileToDB("/tmp/test.txt")
 	// Block main from exiting
 	<-make(chan struct{})
 **/

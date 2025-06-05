@@ -32,7 +32,7 @@ func CreateBucket(dbPath, bucketName string) error {
 	return err
 }
 
-func AddFolderToBucket(dbPath, directory string) error {
+func AddFolderToBucket(dbPath, folder, bucket string) error {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -45,12 +45,12 @@ func AddFolderToBucket(dbPath, directory string) error {
 	}
 	defer watcher.Close()
 
-	err = watcher.Add(directory)
+	err = watcher.Add(folder)
 	if err != nil {
 		log.Fatal("Failed to add watcher:", err)
 	}
 
-	fmt.Printf("Successfully watching %s\n", directory)
+	fmt.Printf("Successfully watching %s\n", folder)
 
 	return nil
 }

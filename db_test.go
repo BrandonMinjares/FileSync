@@ -53,7 +53,7 @@ func TestAddFolderToBucket(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Run the function
-	err = AddFolderToBucket(tmpDB.Name(), tmpDir)
+	err = AddFolderToBucket(tmpDB.Name(), tmpDir, "TestBucket")
 	if err != nil {
 		t.Fatalf("AddFolderToBucket failed: %v", err)
 	}
