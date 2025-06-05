@@ -88,7 +88,7 @@ func main() {
 			bucket, _ := reader.ReadString('\n')
 			bucket = strings.TrimSpace(bucket)
 
-			if err := AddFolderToBucket("my.db", folder, bucket); err != nil {
+			if err := AddFolderToBucket("my.db", folder, bucket, watcher); err != nil {
 				log.Println("Error adding folder to bucket:", err)
 			} else {
 				fmt.Println("Folder added to bucket.")

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"log"
 	"os"
 	"testing"
+
+	"github.com/fsnotify/fsnotify"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -38,6 +41,11 @@ func TestCreateBucket(t *testing.T) {
 }
 
 func TestAddFolderToBucket(t *testing.T) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
 	// Create temp DB
 	tmpDB, err := os.CreateTemp("", "test.db")
 	if err != nil {
@@ -53,7 +61,7 @@ func TestAddFolderToBucket(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Run the function
-	err = AddFolderToBucket(tmpDB.Name(), tmpDir, "TestBucket")
+	err = AddFolderToBucket(tmpDB.Name(), tmpDir, "TestBucket", watcher)
 	if err != nil {
 		t.Fatalf("AddFolderToBucket failed: %v", err)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
@@ -32,25 +31,19 @@ func CreateBucket(dbPath, bucketName string) error {
 	return err
 }
 
-func AddFolderToBucket(dbPath, folder, bucket string) error {
+func AddFolderToBucket(dbPath, folder, bucket string, watcher *fsnotify.Watcher) error {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
 	defer db.Close()
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer watcher.Close()
-
 	err = watcher.Add(folder)
 	if err != nil {
-		log.Fatal("Failed to add watcher:", err)
+		return fmt.Errorf("failed to watch folder %s: %w", folder, err)
 	}
 
-	fmt.Printf("Successfully watching %s\n", folder)
+	fmt.Printf("Now watching folder: %s\n", folder)
 
 	return nil
 }
