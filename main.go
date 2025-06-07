@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
-	pb "synthesize/filesync"
+	pb "synthesize/protos"
 	"time"
 
 	"context"

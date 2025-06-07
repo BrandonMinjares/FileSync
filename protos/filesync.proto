@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package filesyncpb;
-option go_package = "filesync/";
+option go_package = "synthesize/protos";
 
 service FileSyncService {
   rpc SendFile(FileChunk) returns (Ack);

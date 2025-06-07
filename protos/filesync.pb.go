@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v5.29.3
-// source: filesync.proto
+// source: protos/filesync.proto
 
-package filesync
+package protos
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -33,7 +33,7 @@ type FileChunk struct {
 
 func (x *FileChunk) Reset() {
 	*x = FileChunk{}
-	mi := &file_filesync_proto_msgTypes[0]
+	mi := &file_protos_filesync_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +45,7 @@ func (x *FileChunk) String() string {
 func (*FileChunk) ProtoMessage() {}
 
 func (x *FileChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_filesync_proto_msgTypes[0]
+	mi := &file_protos_filesync_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +58,7 @@ func (x *FileChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileChunk.ProtoReflect.Descriptor instead.
 func (*FileChunk) Descriptor() ([]byte, []int) {
-	return file_filesync_proto_rawDescGZIP(), []int{0}
+	return file_protos_filesync_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *FileChunk) GetFilename() string {
@@ -99,7 +99,7 @@ type Ack struct {
 
 func (x *Ack) Reset() {
 	*x = Ack{}
-	mi := &file_filesync_proto_msgTypes[1]
+	mi := &file_protos_filesync_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +111,7 @@ func (x *Ack) String() string {
 func (*Ack) ProtoMessage() {}
 
 func (x *Ack) ProtoReflect() protoreflect.Message {
-	mi := &file_filesync_proto_msgTypes[1]
+	mi := &file_protos_filesync_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,7 +124,7 @@ func (x *Ack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ack.ProtoReflect.Descriptor instead.
 func (*Ack) Descriptor() ([]byte, []int) {
-	return file_filesync_proto_rawDescGZIP(), []int{1}
+	return file_protos_filesync_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Ack) GetReceived() bool {
@@ -149,7 +149,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_filesync_proto_msgTypes[2]
+	mi := &file_protos_filesync_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -161,7 +161,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_filesync_proto_msgTypes[2]
+	mi := &file_protos_filesync_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -174,14 +174,14 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_filesync_proto_rawDescGZIP(), []int{2}
+	return file_protos_filesync_proto_rawDescGZIP(), []int{2}
 }
 
-var File_filesync_proto protoreflect.FileDescriptor
+var File_protos_filesync_proto protoreflect.FileDescriptor
 
-const file_filesync_proto_rawDesc = "" +
+const file_protos_filesync_proto_rawDesc = "" +
 	"\n" +
-	"\x0efilesync.proto\x12\n" +
+	"\x15protos/filesync.proto\x12\n" +
 	"filesyncpb\"w\n" +
 	"\tFileChunk\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x12\n" +
@@ -194,27 +194,27 @@ const file_filesync_proto_rawDesc = "" +
 	"\x05Empty2\x80\x01\n" +
 	"\x0fFileSyncService\x122\n" +
 	"\bSendFile\x12\x15.filesyncpb.FileChunk\x1a\x0f.filesyncpb.Ack\x129\n" +
-	"\vReceiveFile\x12\x11.filesyncpb.Empty\x1a\x15.filesyncpb.FileChunk0\x01B\vZ\tfilesync/b\x06proto3"
+	"\vReceiveFile\x12\x11.filesyncpb.Empty\x1a\x15.filesyncpb.FileChunk0\x01B\x13Z\x11synthesize/protosb\x06proto3"
 
 var (
-	file_filesync_proto_rawDescOnce sync.Once
-	file_filesync_proto_rawDescData []byte
+	file_protos_filesync_proto_rawDescOnce sync.Once
+	file_protos_filesync_proto_rawDescData []byte
 )
 
-func file_filesync_proto_rawDescGZIP() []byte {
-	file_filesync_proto_rawDescOnce.Do(func() {
-		file_filesync_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_filesync_proto_rawDesc), len(file_filesync_proto_rawDesc)))
+func file_protos_filesync_proto_rawDescGZIP() []byte {
+	file_protos_filesync_proto_rawDescOnce.Do(func() {
+		file_protos_filesync_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_protos_filesync_proto_rawDesc), len(file_protos_filesync_proto_rawDesc)))
 	})
-	return file_filesync_proto_rawDescData
+	return file_protos_filesync_proto_rawDescData
 }
 
-var file_filesync_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_filesync_proto_goTypes = []any{
+var file_protos_filesync_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_protos_filesync_proto_goTypes = []any{
 	(*FileChunk)(nil), // 0: filesyncpb.FileChunk
 	(*Ack)(nil),       // 1: filesyncpb.Ack
 	(*Empty)(nil),     // 2: filesyncpb.Empty
 }
-var file_filesync_proto_depIdxs = []int32{
+var file_protos_filesync_proto_depIdxs = []int32{
 	0, // 0: filesyncpb.FileSyncService.SendFile:input_type -> filesyncpb.FileChunk
 	2, // 1: filesyncpb.FileSyncService.ReceiveFile:input_type -> filesyncpb.Empty
 	1, // 2: filesyncpb.FileSyncService.SendFile:output_type -> filesyncpb.Ack
@@ -226,26 +226,26 @@ var file_filesync_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_filesync_proto_init() }
-func file_filesync_proto_init() {
-	if File_filesync_proto != nil {
+func init() { file_protos_filesync_proto_init() }
+func file_protos_filesync_proto_init() {
+	if File_protos_filesync_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_filesync_proto_rawDesc), len(file_filesync_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protos_filesync_proto_rawDesc), len(file_protos_filesync_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_filesync_proto_goTypes,
-		DependencyIndexes: file_filesync_proto_depIdxs,
-		MessageInfos:      file_filesync_proto_msgTypes,
+		GoTypes:           file_protos_filesync_proto_goTypes,
+		DependencyIndexes: file_protos_filesync_proto_depIdxs,
+		MessageInfos:      file_protos_filesync_proto_msgTypes,
 	}.Build()
-	File_filesync_proto = out.File
-	file_filesync_proto_goTypes = nil
-	file_filesync_proto_depIdxs = nil
+	File_protos_filesync_proto = out.File
+	file_protos_filesync_proto_goTypes = nil
+	file_protos_filesync_proto_depIdxs = nil
 }

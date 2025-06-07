@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
-	pb "synthesize/filesync"
+	pb "synthesize/protos"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
