@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package filesyncpb;
+option go_package = "filesync/";
+
+service FileSyncService {
+  rpc SendFile(FileChunk) returns (Ack);
+  rpc ReceiveFile(Empty) returns (stream FileChunk);
+}
+
+message FileChunk {
+  string filename = 1;
+  bytes data = 2;
+  int32 chunk_number = 3;
+  bool is_last = 4;
+}
+
+message Ack {
+  bool received = 1;
+  string message = 2;
+}
+
+message Empty {}
