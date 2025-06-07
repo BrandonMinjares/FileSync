@@ -3,59 +3,58 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
+	"log"
+	"net"
 	"os"
 	pb "synthesize/filesync"
-	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func Connect() {
-	conn, err := grpc.NewClient(PrivateIP) // Replace with actual private IP
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
+type server struct {
+	pb.UnimplementedFileSyncServiceServer
+}
 
-	client := pb.NewFileSyncServiceClient(conn)
-	filename := "example.txt"
-	f, err := os.Open(filename)
+func startServer(port string) {
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	pb.RegisterFileSyncServiceServer(s, &server{})
+	log.Printf("Server listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, error) {
+	fmt.Println("hello")
+	f, err := os.OpenFile(chunk.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return &pb.Ack{Received: false, Message: "File open error"}, err
 	}
 	defer f.Close()
 
-	const chunkSize = 1024
-	buffer := make([]byte, chunkSize)
-	chunkNumber := int32(0)
-
-	for {
-		n, err := f.Read(buffer)
-		if err == io.EOF {
-			break
-		}
-
-		isLast := false
-		if n < chunkSize {
-			isLast = true
-		}
-
-		chunk := &pb.FileChunk{
-			Filename:    filename,
-			Data:        buffer[:n],
-			ChunkNumber: chunkNumber,
-			IsLast:      isLast,
-		}
-		chunkNumber++
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
-
-		ack, err := client.SendFile(ctx, chunk)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Sent chunk %d: %s\n", chunk.ChunkNumber, ack.Message)
+	_, err = f.Write(chunk.Data)
+	if err != nil {
+		return &pb.Ack{Received: false, Message: "Write error"}, err
 	}
+
+	fmt.Printf("Received chunk %d of file %s\n", chunk.ChunkNumber, chunk.Filename)
+	if chunk.IsLast {
+		fmt.Println("File transfer complete.")
+	}
+
+	return &pb.Ack{Received: true, Message: "Chunk received"}, nil
+}
+
+func connectToPeer(ip, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+	conn, err := grpc.NewClient(ip+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Could not connect: %v", err)
+	}
+	client := pb.NewFileSyncServiceClient(conn)
+	return client, conn
 }

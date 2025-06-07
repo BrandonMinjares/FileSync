@@ -6,11 +6,34 @@ import (
 	"log"
 	"os"
 	"strings"
+	pb "synthesize/filesync"
+	"time"
+
+	"context"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 func main() {
+	go startServer("50051")
+	time.Sleep(time.Second * 2) // Wait for the server to spin up
+
+	client, conn := connectToPeer(PrivateIP, "50051")
+	defer conn.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	resp, err := client.SendFile(ctx, &pb.FileChunk{
+		Filename:    "testing.txt",
+		ChunkNumber: 2,
+		Data:        []byte("Hello!"),
+		IsLast:      true,
+	})
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	log.Println(resp)
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)

@@ -194,7 +194,7 @@ const file_filesync_proto_rawDesc = "" +
 	"\x05Empty2\x80\x01\n" +
 	"\x0fFileSyncService\x122\n" +
 	"\bSendFile\x12\x15.filesyncpb.FileChunk\x1a\x0f.filesyncpb.Ack\x129\n" +
-	"\vReceiveFile\x12\x11.filesyncpb.Empty\x1a\x15.filesyncpb.FileChunk0\x01B\vZ\t/filesyncb\x06proto3"
+	"\vReceiveFile\x12\x11.filesyncpb.Empty\x1a\x15.filesyncpb.FileChunk0\x01B\vZ\tfilesync/b\x06proto3"
 
 var (
 	file_filesync_proto_rawDescOnce sync.Once
