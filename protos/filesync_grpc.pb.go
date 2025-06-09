@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FileSyncService_SendFile_FullMethodName    = "/filesyncpb.FileSyncService/SendFile"
-	FileSyncService_ReceiveFile_FullMethodName = "/filesyncpb.FileSyncService/ReceiveFile"
+	FileSyncService_SendFile_FullMethodName          = "/filesyncpb.FileSyncService/SendFile"
+	FileSyncService_ReceiveFile_FullMethodName       = "/filesyncpb.FileSyncService/ReceiveFile"
+	FileSyncService_RequestConnection_FullMethodName = "/filesyncpb.FileSyncService/RequestConnection"
 )
 
 // FileSyncServiceClient is the client API for FileSyncService service.
@@ -29,6 +30,7 @@ const (
 type FileSyncServiceClient interface {
 	SendFile(ctx context.Context, in *FileChunk, opts ...grpc.CallOption) (*Ack, error)
 	ReceiveFile(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileChunk], error)
+	RequestConnection(ctx context.Context, in *ConnectionRequest, opts ...grpc.CallOption) (*ConnectionResponse, error)
 }
 
 type fileSyncServiceClient struct {
@@ -68,12 +70,23 @@ func (c *fileSyncServiceClient) ReceiveFile(ctx context.Context, in *Empty, opts
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FileSyncService_ReceiveFileClient = grpc.ServerStreamingClient[FileChunk]
 
+func (c *fileSyncServiceClient) RequestConnection(ctx context.Context, in *ConnectionRequest, opts ...grpc.CallOption) (*ConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConnectionResponse)
+	err := c.cc.Invoke(ctx, FileSyncService_RequestConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileSyncServiceServer is the server API for FileSyncService service.
 // All implementations must embed UnimplementedFileSyncServiceServer
 // for forward compatibility.
 type FileSyncServiceServer interface {
 	SendFile(context.Context, *FileChunk) (*Ack, error)
 	ReceiveFile(*Empty, grpc.ServerStreamingServer[FileChunk]) error
+	RequestConnection(context.Context, *ConnectionRequest) (*ConnectionResponse, error)
 	mustEmbedUnimplementedFileSyncServiceServer()
 }
 
@@ -89,6 +102,9 @@ func (UnimplementedFileSyncServiceServer) SendFile(context.Context, *FileChunk) 
 }
 func (UnimplementedFileSyncServiceServer) ReceiveFile(*Empty, grpc.ServerStreamingServer[FileChunk]) error {
 	return status.Errorf(codes.Unimplemented, "method ReceiveFile not implemented")
+}
+func (UnimplementedFileSyncServiceServer) RequestConnection(context.Context, *ConnectionRequest) (*ConnectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestConnection not implemented")
 }
 func (UnimplementedFileSyncServiceServer) mustEmbedUnimplementedFileSyncServiceServer() {}
 func (UnimplementedFileSyncServiceServer) testEmbeddedByValue()                         {}
@@ -140,6 +156,24 @@ func _FileSyncService_ReceiveFile_Handler(srv interface{}, stream grpc.ServerStr
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type FileSyncService_ReceiveFileServer = grpc.ServerStreamingServer[FileChunk]
 
+func _FileSyncService_RequestConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileSyncServiceServer).RequestConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FileSyncService_RequestConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileSyncServiceServer).RequestConnection(ctx, req.(*ConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FileSyncService_ServiceDesc is the grpc.ServiceDesc for FileSyncService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -150,6 +184,10 @@ var FileSyncService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendFile",
 			Handler:    _FileSyncService_SendFile_Handler,
+		},
+		{
+			MethodName: "RequestConnection",
+			Handler:    _FileSyncService_RequestConnection_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

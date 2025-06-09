@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	pb "synthesize/protos"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -55,6 +56,37 @@ func connectToPeer(ip, port string) (pb.FileSyncServiceClient, *grpc.ClientConn)
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
 	}
+
 	client := pb.NewFileSyncServiceClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
+		RequesterId:   ip,
+		RequesterName: "john",
+	})
+	if err != nil {
+		log.Printf("Connection request failed: %v", err)
+		conn.Close()
+		return nil, nil
+	}
+	if !res.Accepted {
+		log.Println("Connection rejected by peer:", res.Message)
+		conn.Close()
+		return nil, nil
+	}
+
+	log.Println("Connection accepted:", res.Message)
 	return client, conn
+}
+
+func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
+	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
+
+	// For simplicity, auto-accept now; you can later build a prompt/UI
+	return &pb.ConnectionResponse{
+		Accepted: true,
+		Message:  "Connection accepted!",
+	}, nil
 }

@@ -6,6 +6,7 @@ option go_package = "synthesize/protos";
 service FileSyncService {
   rpc SendFile(FileChunk) returns (Ack);
   rpc ReceiveFile(Empty) returns (stream FileChunk);
+  rpc RequestConnection(ConnectionRequest) returns (ConnectionResponse);
 }
 
 message FileChunk {
@@ -17,6 +18,16 @@ message FileChunk {
 
 message Ack {
   bool received = 1;
+  string message = 2;
+}
+
+message ConnectionRequest {
+  string requester_id = 1;
+  string requester_name = 2;
+}
+
+message ConnectionResponse {
+  bool accepted = 1;
   string message = 2;
 }
 

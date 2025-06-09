@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,13 +12,46 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+type Bucket struct {
+	Name       string   `json:"name"`        // Unique name of the bucket
+	FolderPath string   `json:"folder_path"` // Local absolute path to the folder
+	SharedWith []string `json:"shared_with"` // Peer IDs that this bucket is shared with (not including the owner)
+}
+
 type Peer struct {
-	ID        string
-	IP        string
-	SharedIDs []string
+	IPAddress string `json:"ip_address"` // For initiating gRPC connection
+	Name      string `json:"name"`       // Optional friendly name
+}
+
+type User struct {
+	Name    string
+	IP      string
+	Buckets map[string]*Bucket `json:"buckets"` // Map of bucket name → Bucket object
+	Peers   map[string]*Peer   `json:"peers"`   // Map of peer ID → Peer object
 }
 
 func main() {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print(`
+				Please share your IP number:
+				> `)
+
+	IP, _ := reader.ReadString('\n')
+	IP = strings.TrimSpace(IP)
+
+	fmt.Print(`
+					Please share your name:
+					> `)
+
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+
+	user := User{
+		Name: name,
+		IP:   IP,
+	}
+
 	go startServer("50051")
 
 	time.Sleep(time.Second * 2) // Wait for the server to spin up
@@ -64,8 +98,6 @@ func main() {
 			}
 		}
 	}()
-
-	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		fmt.Print(`
@@ -117,8 +149,20 @@ func main() {
 			PrivateIP = strings.TrimSpace(PrivateIP)
 
 			fmt.Println("Give this user a name")
-			PeerID, _ := reader.ReadString('\n')
-			PeerID = strings.TrimSpace(PeerID)
+			PeerName, _ := reader.ReadString('\n')
+			PeerName = strings.TrimSpace(PeerName)
+
+			client, conn := connectToPeer(PrivateIP, "50051")
+			defer conn.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
+
+			peer := Peer{
+				IPAddress: PrivateIP,
+				Name:      PeerName,
+			}
+
+			user.Peers[PrivateIP] = &peer
 		}
 	}
 }
@@ -139,4 +183,30 @@ func main() {
 		fmt.Println(err)
 	}
 	log.Println(resp)
+
+
+
+
+
+type Bucket struct {
+	Name       string   // e.g., "Photos", "WorkProject"
+	Path       string   // e.g., "/Users/brandon/photos"
+	SharedWith []string // e.g., ["peerA", "peerB"]
+}
+
+type User struct {
+	Name    string
+	IP      string
+	Buckets []string
+}
+
+
+UserA creates Bucket A
+Bucket A contains path "/tmp"
+BucketAPath = /tmp, Peers = [UserB, UserC, UserD]
+
+fileA gets updated
+Notification Happens because we are watching /tmp,
+everyone is Peers gets updated that fileA has been changed
+
 */
