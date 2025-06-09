@@ -67,12 +67,3 @@ A peer-to-peer distributed file synchronization tool built in Go. Designed to de
 This keeps both peers in sync in real-time.
 
 ---
-
-## 🧠 Optional: Two-Way Sync & Conflict Resolution
-
-- For full bidirectional syncing:
-  - Tag each file change with metadata (origin, timestamp, etc.)
-  - Avoid infinite resend loops.
-  - Resolve conflicts using a rule (e.g., "last write wins").
-
----
