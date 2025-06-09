@@ -6,33 +6,21 @@ import (
 	"log"
 	"os"
 	"strings"
-	pb "synthesize/protos"
 	"time"
-
-	"context"
 
 	"github.com/fsnotify/fsnotify"
 )
 
+type Peer struct {
+	ID        string
+	IP        string
+	SharedIDs []string
+}
+
 func main() {
 	go startServer("50051")
+
 	time.Sleep(time.Second * 2) // Wait for the server to spin up
-
-	client, conn := connectToPeer(PrivateIP, "50051")
-	defer conn.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	resp, err := client.SendFile(ctx, &pb.FileChunk{
-		Filename:    "testing.txt",
-		ChunkNumber: 2,
-		Data:        []byte("Hello!"),
-		IsLast:      true,
-	})
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	log.Println(resp)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -124,14 +112,31 @@ func main() {
 			fmt.Printf("Successfully watching %s", folder)
 
 		case "3":
-			fmt.Println("Feature not implemented yet.")
+			fmt.Println("Enter Private IP of user")
+			PrivateIP, _ := reader.ReadString('\n')
+			PrivateIP = strings.TrimSpace(PrivateIP)
 
-		case "exit":
-			fmt.Println("Exiting.")
-			return
-
-		default:
-			fmt.Println("Invalid selection. Try again.")
+			fmt.Println("Give this user a name")
+			PeerID, _ := reader.ReadString('\n')
+			PeerID = strings.TrimSpace(PeerID)
 		}
 	}
 }
+
+/*
+	client, conn := connectToPeer(PrivateIP, "50051")
+	defer conn.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	resp, err := client.SendFile(ctx, &pb.FileChunk{
+		Filename:    "yeah.txt",
+		ChunkNumber: 2,
+		Data:        []byte("Hello!"),
+		IsLast:      true,
+	})
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	log.Println(resp)
+*/
