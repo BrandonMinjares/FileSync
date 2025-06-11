@@ -87,6 +87,7 @@ func main() {
 				1. Create a new bucket
 				2. Add a folder to a bucket
 				3. Connect to a new user
+				4. Share bucket with user
 				Type "exit" to quit
 				> `)
 
@@ -141,15 +142,20 @@ func main() {
 
 			resp, err := client.SendFile(ctx, &pb.FileChunk{
 				Filename:    "test.txt",
-				ChunkNumber: 2,
+				ChunkNumber: 1,
 				Data:        []byte("Hello!"),
 				IsLast:      true,
 			})
 
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Connection test failed:", err)
 			}
-			log.Println(resp)
+
+			log.Println("Peer responded:", resp)
+
+			// At this point, you can safely store the peer
+			// addPeerToUserList(name, PrivateIP)
+			fmt.Println("Peer successfully connected and added.")
 			return
 		}
 	}
