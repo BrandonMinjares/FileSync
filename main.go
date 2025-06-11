@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	pb "synthesize/protos"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -32,25 +33,6 @@ type User struct {
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print(`
-				Please share your IP number:
-				> `)
-
-	IP, _ := reader.ReadString('\n')
-	IP = strings.TrimSpace(IP)
-
-	fmt.Print(`
-					Please share your name:
-					> `)
-
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	user := User{
-		Name: name,
-		IP:   IP,
-	}
 
 	go startServer("50051")
 
@@ -144,25 +126,31 @@ func main() {
 			fmt.Printf("Successfully watching %s", folder)
 
 		case "3":
-			fmt.Println("Enter Private IP of user")
+			fmt.Print("What is the private IP of the peer you want to connect with? ")
 			PrivateIP, _ := reader.ReadString('\n')
 			PrivateIP = strings.TrimSpace(PrivateIP)
 
-			fmt.Println("Give this user a name")
-			PeerName, _ := reader.ReadString('\n')
-			PeerName = strings.TrimSpace(PeerName)
+			fmt.Print("What is the name of the user? ")
+			name, _ := reader.ReadString('\n')
+			name = strings.TrimSpace(name)
 
-			client, conn := connectToPeer(PrivateIP, "50051")
+			client, conn := connectToPeer(PrivateIP, name, "50051")
 			defer conn.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 
-			peer := Peer{
-				IPAddress: PrivateIP,
-				Name:      PeerName,
-			}
+			resp, err := client.SendFile(ctx, &pb.FileChunk{
+				Filename:    "test.txt",
+				ChunkNumber: 2,
+				Data:        []byte("Hello!"),
+				IsLast:      true,
+			})
 
-			user.Peers[PrivateIP] = &peer
+			if err != nil {
+				fmt.Println(err)
+			}
+			log.Println(resp)
+			return
 		}
 	}
 }

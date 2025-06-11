@@ -51,7 +51,7 @@ func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, er
 	return &pb.Ack{Received: true, Message: "Chunk received"}, nil
 }
 
-func connectToPeer(ip, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
 	conn, err := grpc.NewClient(ip+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
@@ -64,7 +64,7 @@ func connectToPeer(ip, port string) (pb.FileSyncServiceClient, *grpc.ClientConn)
 
 	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
 		RequesterId:   ip,
-		RequesterName: "john",
+		RequesterName: name,
 	})
 	if err != nil {
 		log.Printf("Connection request failed: %v", err)
