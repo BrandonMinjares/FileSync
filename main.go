@@ -138,6 +138,12 @@ func main() {
 			PrivateIP, _ := reader.ReadString('\n')
 			PrivateIP = strings.TrimSpace(PrivateIP)
 
+			_, exists := user.Peers[PrivateIP]
+			if exists {
+				fmt.Println("Peer is already connected")
+				continue
+			}
+
 			fmt.Print("What is the name of the user? ")
 			name, _ := reader.ReadString('\n')
 			name = strings.TrimSpace(name)
@@ -170,6 +176,9 @@ func main() {
 			for key := range user.Peers {
 				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
 			}
+		default:
+			fmt.Println("Exiting program")
+			return
 		}
 
 	}
