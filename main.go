@@ -32,7 +32,12 @@ type User struct {
 }
 
 func main() {
-	user := &User{Name: "bran", IP: MyPrivateIP}
+	user := &User{
+		Name:    "bran",
+		IP:      MyPrivateIP,
+		Buckets: make(map[string]*Bucket),
+		Peers:   make(map[string]*Peer),
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 	go startServer("50051")
@@ -89,6 +94,7 @@ func main() {
 				2. Add a folder to a bucket
 				3. Connect to a new user
 				4. Share bucket with user
+				5. List connected users
 				Type "exit" to quit
 				> `)
 
@@ -159,47 +165,17 @@ func main() {
 				Name:      name,
 				IPAddress: PrivateIP,
 			}
-
 			fmt.Println("Peer successfully connected and added.")
-			return
+		case "5":
+			for key := range user.Peers {
+				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
+			}
 		}
+
 	}
 }
 
 /*
-	client, conn := connectToPeer(PrivateIP, "50051")
-	defer conn.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	resp, err := client.SendFile(ctx, &pb.FileChunk{
-		Filename:    "yeah.txt",
-		ChunkNumber: 2,
-		Data:        []byte("Hello!"),
-		IsLast:      true,
-	})
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	log.Println(resp)
-
-
-
-
-
-type Bucket struct {
-	Name       string   // e.g., "Photos", "WorkProject"
-	Path       string   // e.g., "/Users/brandon/photos"
-	SharedWith []string // e.g., ["peerA", "peerB"]
-}
-
-type User struct {
-	Name    string
-	IP      string
-	Buckets []string
-}
-
-
 UserA creates Bucket A
 Bucket A contains path "/tmp"
 BucketAPath = /tmp, Peers = [UserB, UserC, UserD]
