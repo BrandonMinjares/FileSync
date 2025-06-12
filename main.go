@@ -193,14 +193,3 @@ func main() {
 
 	}
 }
-
-/*
-UserA creates Bucket A
-Bucket A contains path "/tmp"
-BucketAPath = /tmp, Peers = [UserB, UserC, UserD]
-
-fileA gets updated
-Notification Happens because we are watching /tmp,
-everyone is Peers gets updated that fileA has been changed
-
-*/
