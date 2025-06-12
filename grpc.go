@@ -15,23 +15,29 @@ import (
 
 type server struct {
 	pb.UnimplementedFileSyncServiceServer
+	user *User
 }
 
 func startServer(port string) {
+
+	user := &User{Name: "bran", IP: MyPrivateIP}
+
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterFileSyncServiceServer(s, &server{})
+
+	pb.RegisterFileSyncServiceServer(s, &server{user: user})
+
 	log.Printf("Server listening at %v", lis.Addr())
+
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
 
 func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, error) {
-	fmt.Println("hello")
 	f, err := os.OpenFile(chunk.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return &pb.Ack{Received: false, Message: "File open error"}, err
@@ -66,6 +72,7 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 		RequesterId:   ip,
 		RequesterName: name,
 	})
+
 	if err != nil {
 		log.Printf("Connection request failed: %v", err)
 		conn.Close()
@@ -89,4 +96,11 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 		Accepted: true,
 		Message:  "Connection accepted!",
 	}, nil
+}
+
+func AddPeer(user *User, peerName, peerIp string) {
+	user.Peers[peerIp] = &Peer{
+		IPAddress: peerIp,
+		Name:      peerName,
+	}
 }
