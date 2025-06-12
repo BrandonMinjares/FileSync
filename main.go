@@ -93,8 +93,10 @@ func main() {
 				1. Create a new bucket
 				2. Add a folder to a bucket
 				3. Connect to a new user
-				4. Share bucket with user
+				4. List all folders in bucket
 				5. List connected users
+				6. List all buckets
+				7. Share bucket with user
 				Type "exit" to quit
 				> `)
 
@@ -172,10 +174,18 @@ func main() {
 				IPAddress: PrivateIP,
 			}
 			fmt.Println("Peer successfully connected and added.")
+		case "4":
+			fmt.Print("To which bucket? ")
+			bucket, _ := reader.ReadString('\n')
+			bucket = strings.TrimSpace(bucket)
+			GetFoldersInBucket("my.db", bucket)
+
 		case "5":
 			for key := range user.Peers {
 				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
 			}
+		case "6":
+			ListAllBuckets("my.db")
 		default:
 			fmt.Println("Exiting program")
 			return

@@ -54,6 +54,24 @@ func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, er
 	return &pb.Ack{Received: true, Message: "Chunk received"}, nil
 }
 
+// create grpc for this
+//func (s *server) ReceiveFolder(ctx context.Context, req *pb.FolderMeta) (*pb.Ack, error) {
+// Create & store bucket object if not already created
+// Add folder to fsnotify watcher
+// Create local folder if not already created
+// add file to folder
+//}
+
+/*
+Share bucket function
+func (s *server) ShareBucket(dbPath, bucket, peer)
+	get each folder in bucket
+	write goroutine
+		for {
+			go send file -> ReceiveFolder to peer
+		}
+*/
+
 func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
 	conn, err := grpc.NewClient(ip+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
