@@ -19,16 +19,13 @@ type server struct {
 }
 
 func startServer(port string) {
-
-	user := &User{Name: "bran", IP: MyPrivateIP}
-
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
 
-	pb.RegisterFileSyncServiceServer(s, &server{user: user})
+	pb.RegisterFileSyncServiceServer(s, &server{})
 
 	log.Printf("Server listening at %v", lis.Addr())
 
@@ -90,8 +87,9 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
-
 	// For simplicity, auto-accept now; you can later build a prompt/UI
+
+	AddPeer(s.user, req.RequesterName, req.RequesterId)
 	return &pb.ConnectionResponse{
 		Accepted: true,
 		Message:  "Connection accepted!",
@@ -103,4 +101,5 @@ func AddPeer(user *User, peerName, peerIp string) {
 		IPAddress: peerIp,
 		Name:      peerName,
 	}
+	println("Added Peer")
 }

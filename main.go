@@ -32,6 +32,8 @@ type User struct {
 }
 
 func main() {
+	user := &User{Name: "bran", IP: MyPrivateIP}
+
 	reader := bufio.NewReader(os.Stdin)
 	go startServer("50051")
 
@@ -153,10 +155,10 @@ func main() {
 			log.Println("Peer responded:", resp)
 
 			// At this point, you can safely store the peer
-			//user.Peers[PrivateIP] = &Peer{
-			//	Name:      name,
-			//	IPAddress: PrivateIP,
-			//}
+			user.Peers[PrivateIP] = &Peer{
+				Name:      name,
+				IPAddress: PrivateIP,
+			}
 
 			fmt.Println("Peer successfully connected and added.")
 			return
