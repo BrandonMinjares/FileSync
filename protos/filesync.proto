@@ -7,6 +7,8 @@ service FileSyncService {
   rpc SendFile(FileChunk) returns (Ack);
   rpc ReceiveFile(Empty) returns (stream FileChunk);
   rpc RequestConnection(ConnectionRequest) returns (ConnectionResponse);
+  rpc ReceiveFolder(stream FolderChunk) returns (Ack);
+
 }
 
 message FileChunk {
@@ -14,6 +16,11 @@ message FileChunk {
   bytes data = 2;
   int32 chunk_number = 3;
   bool is_last = 4;
+}
+
+message FolderChunk {
+  string foldername = 1;
+  FileChunk file_chunk = 2;
 }
 
 message Ack {

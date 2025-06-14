@@ -22,6 +22,7 @@ const (
 	FileSyncService_SendFile_FullMethodName          = "/filesyncpb.FileSyncService/SendFile"
 	FileSyncService_ReceiveFile_FullMethodName       = "/filesyncpb.FileSyncService/ReceiveFile"
 	FileSyncService_RequestConnection_FullMethodName = "/filesyncpb.FileSyncService/RequestConnection"
+	FileSyncService_ReceiveFolder_FullMethodName     = "/filesyncpb.FileSyncService/ReceiveFolder"
 )
 
 // FileSyncServiceClient is the client API for FileSyncService service.
@@ -31,6 +32,7 @@ type FileSyncServiceClient interface {
 	SendFile(ctx context.Context, in *FileChunk, opts ...grpc.CallOption) (*Ack, error)
 	ReceiveFile(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[FileChunk], error)
 	RequestConnection(ctx context.Context, in *ConnectionRequest, opts ...grpc.CallOption) (*ConnectionResponse, error)
+	ReceiveFolder(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FolderChunk, Ack], error)
 }
 
 type fileSyncServiceClient struct {
@@ -80,6 +82,19 @@ func (c *fileSyncServiceClient) RequestConnection(ctx context.Context, in *Conne
 	return out, nil
 }
 
+func (c *fileSyncServiceClient) ReceiveFolder(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[FolderChunk, Ack], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &FileSyncService_ServiceDesc.Streams[1], FileSyncService_ReceiveFolder_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[FolderChunk, Ack]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FileSyncService_ReceiveFolderClient = grpc.ClientStreamingClient[FolderChunk, Ack]
+
 // FileSyncServiceServer is the server API for FileSyncService service.
 // All implementations must embed UnimplementedFileSyncServiceServer
 // for forward compatibility.
@@ -87,6 +102,7 @@ type FileSyncServiceServer interface {
 	SendFile(context.Context, *FileChunk) (*Ack, error)
 	ReceiveFile(*Empty, grpc.ServerStreamingServer[FileChunk]) error
 	RequestConnection(context.Context, *ConnectionRequest) (*ConnectionResponse, error)
+	ReceiveFolder(grpc.ClientStreamingServer[FolderChunk, Ack]) error
 	mustEmbedUnimplementedFileSyncServiceServer()
 }
 
@@ -105,6 +121,9 @@ func (UnimplementedFileSyncServiceServer) ReceiveFile(*Empty, grpc.ServerStreami
 }
 func (UnimplementedFileSyncServiceServer) RequestConnection(context.Context, *ConnectionRequest) (*ConnectionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestConnection not implemented")
+}
+func (UnimplementedFileSyncServiceServer) ReceiveFolder(grpc.ClientStreamingServer[FolderChunk, Ack]) error {
+	return status.Errorf(codes.Unimplemented, "method ReceiveFolder not implemented")
 }
 func (UnimplementedFileSyncServiceServer) mustEmbedUnimplementedFileSyncServiceServer() {}
 func (UnimplementedFileSyncServiceServer) testEmbeddedByValue()                         {}
@@ -174,6 +193,13 @@ func _FileSyncService_RequestConnection_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileSyncService_ReceiveFolder_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FileSyncServiceServer).ReceiveFolder(&grpc.GenericServerStream[FolderChunk, Ack]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type FileSyncService_ReceiveFolderServer = grpc.ClientStreamingServer[FolderChunk, Ack]
+
 // FileSyncService_ServiceDesc is the grpc.ServiceDesc for FileSyncService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -195,6 +221,11 @@ var FileSyncService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "ReceiveFile",
 			Handler:       _FileSyncService_ReceiveFile_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "ReceiveFolder",
+			Handler:       _FileSyncService_ReceiveFolder_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "protos/filesync.proto",

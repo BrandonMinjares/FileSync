@@ -186,6 +186,18 @@ func main() {
 			}
 		case "6":
 			ListAllBuckets("my.db")
+		case "7":
+			client, conn := connectToPeer(PrivateIP, "bran", "50051")
+			if client == nil {
+				log.Fatal("Failed to connect to peer")
+			}
+			defer conn.Close()
+
+			// Now share a folder (e.g., "tmp")
+			err := ShareFolder("tmp", client)
+			if err != nil {
+				log.Fatalf("Error sharing folder: %v", err)
+			}
 		default:
 			fmt.Println("Exiting program")
 			return

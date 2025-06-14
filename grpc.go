@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -52,6 +53,95 @@ func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, er
 	}
 
 	return &pb.Ack{Received: true, Message: "Chunk received"}, nil
+}
+
+func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) error {
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&pb.Ack{Received: true, Message: "All chunks received."})
+		}
+		if err != nil {
+			return err
+		}
+
+		fileChunk := chunk.GetFileChunk() // <- Extract inner FileChunk
+		if fileChunk == nil {
+			continue
+		}
+
+		f, err := os.OpenFile(fileChunk.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		_, err = f.Write(fileChunk.Data)
+		f.Close()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
+	}
+}
+
+func ShareFolder(folderPath string, client pb.FileSyncServiceClient) error {
+	stream, err := client.ReceiveFolder(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to open stream: %w", err)
+	}
+
+	files, err := os.ReadDir(folderPath)
+	if err != nil {
+		return fmt.Errorf("error reading directory: %w", err)
+	}
+
+	for _, entry := range files {
+		if entry.IsDir() {
+			continue
+		}
+
+		filePath := folderPath + "/" + entry.Name()
+		f, err := os.Open(filePath)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			continue
+		}
+		defer f.Close()
+
+		buf := make([]byte, 1024)
+		chunkNum := int32(1)
+		for {
+			n, err := f.Read(buf)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			isLast := err == io.EOF
+
+			err = stream.Send(&pb.FolderChunk{
+				Foldername: folderPath,
+				FileChunk: &pb.FileChunk{
+					Filename:    entry.Name(),
+					Data:        buf[:n],
+					ChunkNumber: chunkNum,
+					IsLast:      isLast,
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to send chunk: %w", err)
+			}
+			chunkNum++
+			if isLast {
+				break
+			}
+		}
+	}
+
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("failed to close stream: %w", err)
+	}
+	fmt.Println("Folder shared:", resp.Message)
+	return nil
 }
 
 // create grpc for this

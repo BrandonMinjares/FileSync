@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	pb "synthesize/protos"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -100,5 +101,27 @@ func ListAllBuckets(dbPath string) error {
 			fmt.Printf("Bucket: %s\n", name)
 			return nil
 		})
+	})
+}
+
+func ShareBucket(dbPath, bucket string, client pb.FileSyncServiceClient) error {
+	db, err := bolt.Open(dbPath, 0600, nil)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	return db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		if b == nil {
+			return fmt.Errorf("bucket %s does not exist", bucket)
+		}
+
+		b.ForEach(func(k, v []byte) error {
+			folderPath := string(k)
+			go ShareFolder(folderPath, client) // share each folder concurrently
+			return nil
+		})
+		return nil
 	})
 }
