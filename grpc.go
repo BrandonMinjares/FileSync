@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	pb "synthesize/protos"
 	"time"
 
@@ -72,12 +73,15 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			fmt.Println("Directory created:", chunk.GetFoldername())
 		}
 
-		fileChunk := chunk.GetFileChunk() // <- Extract inner FileChunk
+		fileChunk := chunk.GetFileChunk()
 		if fileChunk == nil {
 			continue
 		}
 
-		f, err := os.OpenFile(fileChunk.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// Combine folder path with filename
+		filepath := filepath.Join(chunk.GetFoldername(), fileChunk.Filename)
+
+		f, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
