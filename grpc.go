@@ -78,17 +78,19 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			continue
 		}
 
-		// Combine folder path with filename
-		filepath := filepath.Join(chunk.GetFoldername(), fileChunk.Filename)
+		// Join the directory with the filename
+		fullPath := filepath.Join(chunk.GetFoldername(), fileChunk.Filename)
 
-		f, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// Write to the file
+		f, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open file: %w", err)
 		}
+		defer f.Close()
+
 		_, err = f.Write(fileChunk.Data)
-		f.Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write file: %w", err)
 		}
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
