@@ -19,17 +19,16 @@ type server struct {
 	user *User
 }
 
-func startServer(port string) {
+func startServer(port string, user *User) {
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
 
-	pb.RegisterFileSyncServiceServer(s, &server{})
+	s := grpc.NewServer()
+	pb.RegisterFileSyncServiceServer(s, &server{user: user}) // ← Set the user here
 
 	log.Printf("Server listening at %v", lis.Addr())
-
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

@@ -40,7 +40,7 @@ func main() {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	go startServer("50051")
+	go startServer("50051", user)
 
 	time.Sleep(time.Second * 2) // Wait for the server to spin up
 
