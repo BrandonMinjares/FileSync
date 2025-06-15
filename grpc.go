@@ -11,23 +11,26 @@ import (
 	pb "synthesize/protos"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type server struct {
 	pb.UnimplementedFileSyncServiceServer
-	user *User
+	user    *User
+	watcher *fsnotify.Watcher
 }
 
-func startServer(port string, user *User) {
+func startServer(port string, user *User, watcher *fsnotify.Watcher) {
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterFileSyncServiceServer(s, &server{user: user}) // ← Set the user here
+	pb.RegisterFileSyncServiceServer(s, &server{user: user, watcher: watcher})
 
 	log.Printf("Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
@@ -94,6 +97,9 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		}
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
+		fmt.Printf("Do you want to begin watching folder %s for changes?", chunk.Foldername)
+		s.watcher.Add(chunk.Foldername)
+
 	}
 }
 

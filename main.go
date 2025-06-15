@@ -39,16 +39,16 @@ func main() {
 		Peers:   make(map[string]*Peer),
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-	go startServer("50051", user)
-
-	time.Sleep(time.Second * 2) // Wait for the server to spin up
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer watcher.Close()
+
+	reader := bufio.NewReader(os.Stdin)
+	go startServer("50051", user, watcher)
+
+	time.Sleep(time.Second * 2) // Wait for the server to spin up
 
 	// Start goroutine to listen for events
 	go func() {
