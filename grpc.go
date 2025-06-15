@@ -64,6 +64,14 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			return err
 		}
 
+		if !dirExists(chunk.GetFoldername()) {
+			err := os.MkdirAll(chunk.GetFoldername(), 0755)
+			if err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+			fmt.Println("Directory created:", chunk.GetFoldername())
+		}
+
 		fileChunk := chunk.GetFileChunk() // <- Extract inner FileChunk
 		if fileChunk == nil {
 			continue
@@ -81,6 +89,14 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
 	}
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return info.IsDir()
 }
 
 func ShareFolder(folderPath string, client pb.FileSyncServiceClient) error {
