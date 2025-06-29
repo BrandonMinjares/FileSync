@@ -17,7 +17,7 @@ type FileMeta struct {
 	Created     int64
 }
 
-func CreateBucket(dbPath, bucketName string) error {
+func CreateBucket(dbPath string) error {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -25,9 +25,9 @@ func CreateBucket(dbPath, bucketName string) error {
 	defer db.Close()
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		_, err := tx.CreateBucketIfNotExists([]byte("files"))
 		if err != nil {
-			return fmt.Errorf("failed to create bucket '%s': %w", bucketName, err)
+			return fmt.Errorf("failed to create bucket '%s': %w", "files", err)
 		}
 		return nil
 	})

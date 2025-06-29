@@ -12,16 +12,15 @@ import (
 
 func TestCreateBucket(t *testing.T) {
 	// Use a test-specific database
-	dbPath := "test.db"
-	defer os.Remove(dbPath) // Clean up after test
+	defer os.Remove("test.db") // Clean up after test
 
 	// Run the createBucket function
-	err := CreateBucket(dbPath, "TestBucket")
+	err := CreateBucket("files")
 	if err != nil {
 		t.Fatalf("createBucket failed: %v", err)
 	}
 
-	db, err := bolt.Open(dbPath, 0600, nil)
+	db, err := bolt.Open("test.db", 0600, nil)
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

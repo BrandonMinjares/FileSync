@@ -39,6 +39,9 @@ func main() {
 		Peers:   make(map[string]*Peer),
 	}
 
+	CreateBucket("my.db")
+	fmt.Println("Creating bucket `files` and database `my.db`")
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -90,7 +93,6 @@ func main() {
 	for {
 		fmt.Print(`
 				Would you like to:
-				1. Create a new bucket
 				2. Add a folder to a bucket
 				3. Connect to a new user
 				4. List all folders in bucket
@@ -104,16 +106,6 @@ func main() {
 		input = strings.TrimSpace(input)
 
 		switch input {
-		case "1":
-			fmt.Print("What would you like the bucket name to be? ")
-			input, _ := reader.ReadString('\n')
-			input = strings.TrimSpace(input)
-			if err := CreateBucket("my.db", input); err != nil {
-				log.Println("Error creating bucket:", err)
-			} else {
-				fmt.Println("Bucket created.")
-			}
-
 		case "2":
 			fmt.Print("What folder would you like to add? ")
 			folder, _ := reader.ReadString('\n')
