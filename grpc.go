@@ -97,9 +97,10 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		}
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
-		fmt.Printf("Do you want to begin watching folder %s for changes?", chunk.Foldername)
-		s.watcher.Add(chunk.Foldername)
 
+		AddFolderToBucket("my.db", chunk.Foldername, "files", s.watcher)
+		fmt.Printf("Folder added to db")
+		fmt.Printf("Now watching folder %s for changes", chunk.Foldername)
 	}
 }
 
