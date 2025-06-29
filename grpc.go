@@ -207,16 +207,24 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 	// For simplicity, auto-accept now; you can later build a prompt/UI
 
 	AddPeer(s.user, req.RequesterName, req.RequesterId)
+
 	return &pb.ConnectionResponse{
 		Accepted: true,
 		Message:  "Connection accepted!",
 	}, nil
 }
 
-func AddPeer(user *User, peerName, peerIp string) {
+func AddPeer(user *User, peerName, peerIp string) error {
+	_, exists := user.Peers[peerIp]
+	if !exists {
+		println("Peer already added")
+		return nil
+	}
+
 	user.Peers[peerIp] = &Peer{
 		IPAddress: peerIp,
 		Name:      peerName,
 	}
 	println("Added Peer")
+	return nil
 }
