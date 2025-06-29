@@ -111,11 +111,7 @@ func main() {
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
-			fmt.Print("To which bucket? ")
-			bucket, _ := reader.ReadString('\n')
-			bucket = strings.TrimSpace(bucket)
-
-			if err := AddFolderToBucket("my.db", folder, bucket, watcher); err != nil {
+			if err := AddFolderToBucket("my.db", folder, "files", watcher); err != nil {
 				log.Println("Error adding folder to bucket:", err)
 			} else {
 				fmt.Println("Folder added to bucket.")
@@ -167,10 +163,7 @@ func main() {
 			}
 			fmt.Println("Peer successfully connected and added.")
 		case "4":
-			fmt.Print("To which bucket? ")
-			bucket, _ := reader.ReadString('\n')
-			bucket = strings.TrimSpace(bucket)
-			GetFoldersInBucket("my.db", bucket)
+			GetFoldersInBucket("my.db", "files")
 
 		case "5":
 			for key := range user.Peers {
