@@ -13,30 +13,42 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-type Bucket struct {
-	Name       string   `json:"name"`        // Unique name of the bucket
-	FolderPath string   `json:"folder_path"` // Local absolute path to the folder
-	SharedWith []string `json:"shared_with"` // Peer IDs that this bucket is shared with (not including the owner)
-}
-
 type Peer struct {
 	IPAddress string `json:"ip_address"` // For initiating gRPC connection
 	Name      string `json:"name"`       // Optional friendly name
 }
 
+/*
+*
+UserA adds folder to bucket
+UserA add connects with UserB
+UserA wants to shared folder
+
+	if folder not in UserA's folders:
+			create uuid of folder
+			add to userA's folders
+
+	send folder, folderid to UserB
+	add UserB to SharedWith
+*/
+type Folder struct {
+	FolderID   string
+	Path       string
+	SharedWith []string
+}
+
 type User struct {
 	Name    string
 	IP      string
-	Buckets map[string]*Bucket `json:"buckets"` // Map of bucket name → Bucket object
 	Peers   map[string]*Peer   `json:"peers"`   // Map of peer ID → Peer object
+	Folders map[string]*Folder `json:"folders"` // Map of peer ID → Peer object
 }
 
 func main() {
 	user := &User{
-		Name:    "bran",
-		IP:      MyPrivateIP,
-		Buckets: make(map[string]*Bucket),
-		Peers:   make(map[string]*Peer),
+		Name:  "bran",
+		IP:    MyPrivateIP,
+		Peers: make(map[string]*Peer),
 	}
 
 	CreateBucket("my.db")
