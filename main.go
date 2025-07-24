@@ -184,7 +184,7 @@ func main() {
 		case "6":
 			ListAllBuckets("my.db")
 		case "7":
-			client, conn := connectToPeer(PrivateIP, "bran", "50051")
+			client, conn := connectToPeer(GuestPrivateIP, "bran", "50051")
 			if client == nil {
 				log.Fatal("Failed to connect to peer")
 			}
