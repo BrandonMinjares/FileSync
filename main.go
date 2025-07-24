@@ -110,7 +110,7 @@ func main() {
 				4. List all folders in bucket
 				5. List connected users
 				6. List all buckets
-				7. Share bucket with user
+				7. Share folder with user
 				Type "exit" to quit
 				> `)
 
@@ -190,8 +190,12 @@ func main() {
 			}
 			defer conn.Close()
 
+			fmt.Print("What folder would you like to share? ")
+			folder, _ := reader.ReadString('\n')
+			folder = strings.TrimSpace(folder)
+
 			// Now share a folder (e.g., "tmp")
-			err := ShareFolder("tmp", client)
+			err := ShareFolder(folder, client)
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
