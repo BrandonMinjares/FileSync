@@ -91,7 +91,6 @@ func main() {
 					fmt.Println("Last Modified:", info.ModTime())
 
 					parentDir := filepath.Dir(event.Name)
-					fmt.Println("Parent folder of changed file:", parentDir)
 
 					// notify shared folder
 					NotifySharedFolderUsers(parentDir)

@@ -105,7 +105,6 @@ func AddUserToSharedFolder(folder string, ip string) error {
 }
 
 func GetFoldersInBucket(dbPath, bucket string) error {
-	println("in get folders")
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -134,8 +133,6 @@ func GetFoldersInBucket(dbPath, bucket string) error {
 }
 
 func NotifySharedFolderUsers(folder string) error {
-	fmt.Println("In notify function for folder:", folder)
-
 	db, err := bolt.Open("my.db", 0600, nil)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -156,17 +153,11 @@ func NotifySharedFolderUsers(folder string) error {
 		}
 
 		// Debug print raw value
-		fmt.Printf("Raw JSON stored: %s\n", string(existing))
+		fmt.Printf("IP Addresses Sharing Folder: %s\n", string(existing))
 
 		var userIPs []string
 		if err := json.Unmarshal(existing, &userIPs); err != nil {
 			return fmt.Errorf("failed to unmarshal existing user list: %w", err)
-		}
-
-		// Print each IP
-		fmt.Printf("Users sharing folder %s:\n", folder)
-		for _, ip := range userIPs {
-			fmt.Println(" -", ip)
 		}
 
 		return nil
