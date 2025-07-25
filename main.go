@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	pb "synthesize/protos"
 	"time"
@@ -51,8 +53,9 @@ func main() {
 		Peers: make(map[string]*Peer),
 	}
 
-	CreateBucket("my.db")
-	fmt.Println("Creating bucket `files` and database `my.db`")
+	// bucket that will contain user folders -> metadata
+	CreateBucket("my.db", "shared_folders")
+	CreateBucket("my.db", "user_file_state")
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -73,7 +76,7 @@ func main() {
 				if !ok {
 					return
 				}
-				fmt.Println("EVENT:", event)
+				fmt.Println("EVENT:", event.Name)
 				if event.Op&fsnotify.Create == fsnotify.Create {
 					fmt.Println("File created:", event.Name)
 				}
@@ -86,6 +89,12 @@ func main() {
 					fmt.Println("File Name:", info.Name())
 					fmt.Println("Size (bytes):", info.Size())
 					fmt.Println("Last Modified:", info.ModTime())
+
+					parentDir := filepath.Dir(event.Name)
+					fmt.Println("Parent folder of changed file:", parentDir)
+
+					// notify shared folder
+					NotifySharedFolderUsers(parentDir)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					fmt.Println("File deleted:", event.Name)
@@ -123,7 +132,7 @@ func main() {
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
-			if err := AddFolderToBucket("my.db", folder, "files", watcher); err != nil {
+			if err := AddFolderToBucket("my.db", folder, "shared_folders", watcher); err != nil {
 				log.Println("Error adding folder to bucket:", err)
 			} else {
 				fmt.Println("Folder added to bucket.")
@@ -175,22 +184,42 @@ func main() {
 			}
 			fmt.Println("Peer successfully connected and added.")
 		case "4":
-			GetFoldersInBucket("my.db", "files")
+			GetFoldersInBucket("my.db", "shared_folders")
 
 		case "5":
 			for key := range user.Peers {
 				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
 			}
-		case "6":
-			ListAllBuckets("my.db")
+
 		case "7":
-			client, conn := connectToPeer(GuestPrivateIP, "bran", "50051")
+			fmt.Println("Connected peers:")
+			i := 1
+			peerIPs := []string{}
+			for ip, peer := range user.Peers {
+				fmt.Printf("%d. %s (%s)\n", i, peer.Name, ip)
+				peerIPs = append(peerIPs, ip)
+				i++
+			}
+
+			fmt.Print("Enter the number of the peer to share the folder with: ")
+			choiceStr, _ := reader.ReadString('\n')
+			choiceStr = strings.TrimSpace(choiceStr)
+			choice, _ := strconv.Atoi(choiceStr)
+			if choice < 1 || choice > len(peerIPs) {
+				fmt.Println("Invalid choice.")
+				continue
+			}
+			peerIP := peerIPs[choice-1]
+			peer := user.Peers[peerIP]
+
+			client, conn := connectToPeer(peer.IPAddress, peer.Name, "50051")
 			if client == nil {
 				log.Fatal("Failed to connect to peer")
 			}
 			defer conn.Close()
 
 			fmt.Print("What folder would you like to share? ")
+			GetFoldersInBucket("my.db", "shared_folders")
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
@@ -199,6 +228,8 @@ func main() {
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
+			AddUserToSharedFolder(folder, peer.IPAddress)
+
 		default:
 			fmt.Println("Exiting program")
 			return
