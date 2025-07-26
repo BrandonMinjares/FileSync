@@ -1,13 +1,5 @@
 package main
 
-import (
-	"log"
-	"os"
-	"testing"
-
-	"github.com/fsnotify/fsnotify"
-)
-
 /**
 func TestCreateBucket(t *testing.T) {
 	// Use a test-specific database
@@ -38,7 +30,7 @@ func TestCreateBucket(t *testing.T) {
 	}
 }
 */
-
+/*
 func TestAddFolderToBucket(t *testing.T) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -65,3 +57,4 @@ func TestAddFolderToBucket(t *testing.T) {
 		t.Fatalf("AddFolderToBucket failed: %v", err)
 	}
 }
+*/

@@ -3,26 +3,22 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
 )
 
+// Struct to hold metadata
 type FileMeta struct {
-	ContentHash string
-	Size        int64
-	ModTime     int64 // or time.Time, serialized
-	Created     int64
+	ModTime time.Time `json:"mod_time"`
+	Size    int64     `json:"size"`
 }
 
-func CreateBucket(dbPath string, bucketName string) error {
-	db, err := bolt.Open(dbPath, 0600, nil)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	err = db.Update(func(tx *bolt.Tx) error {
+func CreateBucket(db *bolt.DB, bucketName string) error {
+	err := db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			return fmt.Errorf("failed to create bucket '%s': %w", "files", err)
@@ -32,14 +28,8 @@ func CreateBucket(dbPath string, bucketName string) error {
 	return err
 }
 
-func AddFolderToBucket(dbPath, folder, bucket string, watcher *fsnotify.Watcher) error {
-	db, err := bolt.Open(dbPath, 0600, nil)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	err = watcher.Add(folder)
+func AddFolderToBucket(db *bolt.DB, folder, bucket string, watcher *fsnotify.Watcher) error {
+	err := watcher.Add(folder)
 	if err != nil {
 		return fmt.Errorf("failed to watch folder %s: %w", folder, err)
 	}
@@ -55,14 +45,86 @@ func AddFolderToBucket(dbPath, folder, bucket string, watcher *fsnotify.Watcher)
 		if b == nil {
 			return fmt.Errorf("bucket %s does not exist", bucket)
 		}
-		return b.Put([]byte(folder), emptyIPList)
+		b.Put([]byte(folder), emptyIPList)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update DB: %w", err)
 	}
 
 	fmt.Printf("Now watching folder: %s\n", folder)
+
+	// GetAllFilesInBucket("my.db", "user_file_state")
+	AddFilesToFileStateBucket(db, folder)
 	return nil
+}
+
+func AddFilesToFileStateBucket(db *bolt.DB, folder string) error {
+	// Add each file -> metadata to user_file bucket
+	entries, err := os.ReadDir(folder)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			fmt.Println("File:", folder+"/"+entry.Name())
+		}
+
+		fullPath := filepath.Join(folder, entry.Name())
+
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			return err
+		}
+
+		meta := FileMeta{
+			ModTime: info.ModTime(),
+			Size:    info.Size(),
+		}
+
+		data, err := json.Marshal(meta)
+		if err != nil {
+			return err
+		}
+
+		db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("user_file_state"))
+			err := b.Put([]byte(fullPath), data)
+			return err
+		})
+	}
+
+	return nil
+}
+
+func GetAllFilesInBucket(dbPath, bucket string) error {
+	print("in GetAllFilesInBucket")
+	db, err := bolt.Open(dbPath, 0600, nil)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	return db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket))
+		if b == nil {
+			fmt.Printf("Bucket %q does NOT exist\n", bucket)
+			return fmt.Errorf("bucket %s does not exist", bucket)
+		}
+
+		fmt.Printf("Reading from bucket %q:\n", bucket)
+		count := 0
+		b.ForEach(func(k, v []byte) error {
+			fmt.Printf("  key = %s, value = %s\n", k, v)
+			count++
+			return nil
+		})
+		if count == 0 {
+			fmt.Printf("Bucket %q is empty\n", bucket)
+		}
+		return nil
+	})
 }
 
 func AddUserToSharedFolder(folder string, ip string) error {
