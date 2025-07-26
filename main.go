@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	bolt "go.etcd.io/bbolt"
 )
 
 type Peer struct {
@@ -47,15 +48,21 @@ type User struct {
 }
 
 func main() {
+	db, err := bolt.Open("my.db", 0600, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	user := &User{
 		Name:  "bran",
 		IP:    MyPrivateIP,
 		Peers: make(map[string]*Peer),
 	}
-
 	// bucket that will contain user folders -> metadata
-	CreateBucket("my.db", "shared_folders")
-	CreateBucket("my.db", "user_file_state")
+	CreateBucket(db, "shared_folders")
+	CreateBucket(db, "user_file_state")
+	println("yes")
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -131,7 +138,7 @@ func main() {
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
-			if err := AddFolderToBucket("my.db", folder, "shared_folders", watcher); err != nil {
+			if err := AddFolderToBucket(db, folder, "shared_folders", watcher); err != nil {
 				log.Println("Error adding folder to bucket:", err)
 			} else {
 				fmt.Println("Folder added to bucket.")
@@ -223,7 +230,7 @@ func main() {
 			folder = strings.TrimSpace(folder)
 
 			// Now share a folder (e.g., "tmp")
-			err := ShareFolder(folder, client)
+			err := ShareFolder(db, folder, client)
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}

@@ -11,6 +11,8 @@ import (
 	pb "synthesize/protos"
 	"time"
 
+	bolt "go.etcd.io/bbolt"
+
 	"github.com/fsnotify/fsnotify"
 
 	"google.golang.org/grpc"
@@ -98,7 +100,13 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
 
-		AddFolderToBucket("my.db", chunk.Foldername, "shared_folders", s.watcher)
+		db, err := bolt.Open("my.db", 0600, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		AddFolderToBucket(db, chunk.Foldername, "shared_folders", s.watcher)
 		fmt.Printf("Folder added to db")
 		fmt.Printf("Now watching folder %s for changes", chunk.Foldername)
 	}
@@ -112,7 +120,7 @@ func dirExists(path string) bool {
 	return info.IsDir()
 }
 
-func ShareFolder(folderPath string, client pb.FileSyncServiceClient) error {
+func ShareFolder(db *bolt.DB, folderPath string, client pb.FileSyncServiceClient) error {
 	stream, err := client.ReceiveFolder(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to open stream: %w", err)
