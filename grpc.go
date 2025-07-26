@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	pb "synthesize/protos"
@@ -23,20 +22,14 @@ type server struct {
 	pb.UnimplementedFileSyncServiceServer
 	user    *User
 	watcher *fsnotify.Watcher
+	db      *bolt.DB
 }
 
-func startServer(port string, user *User, watcher *fsnotify.Watcher) {
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-	pb.RegisterFileSyncServiceServer(s, &server{user: user, watcher: watcher})
-
-	log.Printf("Server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+func NewServer(db *bolt.DB, user *User, watcher *fsnotify.Watcher) *server {
+	return &server{
+		db:      db,
+		user:    user,
+		watcher: watcher,
 	}
 }
 
@@ -100,13 +93,9 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
 
-		db, err := bolt.Open("my.db", 0600, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer db.Close()
+		// Maybe multiple instances of db being opened?
 
-		AddFolderToBucket(db, chunk.Foldername, "shared_folders", s.watcher)
+		s.AddFolderToBucket(chunk.Foldername, "shared_folders", s.watcher)
 		fmt.Printf("Folder added to db")
 		fmt.Printf("Now watching folder %s for changes", chunk.Foldername)
 	}
@@ -120,7 +109,7 @@ func dirExists(path string) bool {
 	return info.IsDir()
 }
 
-func ShareFolder(db *bolt.DB, folderPath string, client pb.FileSyncServiceClient) error {
+func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient) error {
 	stream, err := client.ReceiveFolder(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to open stream: %w", err)

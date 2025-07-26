@@ -17,8 +17,8 @@ type FileMeta struct {
 	Size    int64     `json:"size"`
 }
 
-func CreateBucket(db *bolt.DB, bucketName string) error {
-	err := db.Update(func(tx *bolt.Tx) error {
+func (s *server) CreateBucket(bucketName string) error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			return fmt.Errorf("failed to create bucket '%s': %w", "files", err)
@@ -28,7 +28,7 @@ func CreateBucket(db *bolt.DB, bucketName string) error {
 	return err
 }
 
-func AddFolderToBucket(db *bolt.DB, folder, bucket string, watcher *fsnotify.Watcher) error {
+func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
 	err := watcher.Add(folder)
 	if err != nil {
 		return fmt.Errorf("failed to watch folder %s: %w", folder, err)
@@ -40,7 +40,7 @@ func AddFolderToBucket(db *bolt.DB, folder, bucket string, watcher *fsnotify.Wat
 		return fmt.Errorf("failed to marshal empty IP list: %w", err)
 	}
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
 		if b == nil {
 			return fmt.Errorf("bucket %s does not exist", bucket)
@@ -55,11 +55,11 @@ func AddFolderToBucket(db *bolt.DB, folder, bucket string, watcher *fsnotify.Wat
 	fmt.Printf("Now watching folder: %s\n", folder)
 
 	// GetAllFilesInBucket("my.db", "user_file_state")
-	AddFilesToFileStateBucket(db, folder)
+	s.AddFilesToFileStateBucket(folder)
 	return nil
 }
 
-func AddFilesToFileStateBucket(db *bolt.DB, folder string) error {
+func (s *server) AddFilesToFileStateBucket(folder string) error {
 	// Add each file -> metadata to user_file bucket
 	entries, err := os.ReadDir(folder)
 	if err != nil {
@@ -88,7 +88,7 @@ func AddFilesToFileStateBucket(db *bolt.DB, folder string) error {
 			return err
 		}
 
-		db.Update(func(tx *bolt.Tx) error {
+		s.db.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte("user_file_state"))
 			err := b.Put([]byte(fullPath), data)
 			return err
@@ -98,15 +98,8 @@ func AddFilesToFileStateBucket(db *bolt.DB, folder string) error {
 	return nil
 }
 
-func GetAllFilesInBucket(dbPath, bucket string) error {
-	print("in GetAllFilesInBucket")
-	db, err := bolt.Open(dbPath, 0600, nil)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	return db.View(func(tx *bolt.Tx) error {
+func (s *server) GetAllFilesInBucket(bucket string) error {
+	return s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
 		if b == nil {
 			fmt.Printf("Bucket %q does NOT exist\n", bucket)
@@ -127,14 +120,8 @@ func GetAllFilesInBucket(dbPath, bucket string) error {
 	})
 }
 
-func AddUserToSharedFolder(folder string, ip string) error {
-	db, err := bolt.Open("my.db", 0600, nil)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	return db.Update(func(tx *bolt.Tx) error {
+func (s *server) AddUserToSharedFolder(folder string, ip string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte("shared_folders"))
 		if err != nil {
 			return err
@@ -166,14 +153,8 @@ func AddUserToSharedFolder(folder string, ip string) error {
 	})
 }
 
-func GetFoldersInBucket(dbPath, bucket string) error {
-	db, err := bolt.Open(dbPath, 0600, nil)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	return db.View(func(tx *bolt.Tx) error {
+func (s *server) GetFoldersInBucket(bucket string) error {
+	return s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
 		if b == nil {
 			fmt.Printf("Bucket %q does NOT exist\n", bucket)
@@ -194,14 +175,8 @@ func GetFoldersInBucket(dbPath, bucket string) error {
 	})
 }
 
-func NotifySharedFolderUsers(folder string) error {
-	db, err := bolt.Open("my.db", 0600, nil)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	return db.View(func(tx *bolt.Tx) error {
+func (s *server) NotifySharedFolderUsers(folder string) error {
+	return s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("shared_folders"))
 		if b == nil {
 			return fmt.Errorf("bucket %q does not exist", "shared_folders")

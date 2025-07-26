@@ -12,8 +12,10 @@ import (
 	pb "synthesize/protos"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
+
+	"github.com/fsnotify/fsnotify"
+	"google.golang.org/grpc"
 )
 
 type Peer struct {
@@ -59,10 +61,6 @@ func main() {
 		IP:    MyPrivateIP,
 		Peers: make(map[string]*Peer),
 	}
-	// bucket that will contain user folders -> metadata
-	CreateBucket(db, "shared_folders")
-	CreateBucket(db, "user_file_state")
-	println("yes")
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -70,8 +68,15 @@ func main() {
 	}
 	defer watcher.Close()
 
+	s := grpc.NewServer()
+	srv := NewServer(db, user, watcher)
+	pb.RegisterFileSyncServiceServer(s, srv)
+
+	// bucket that will contain user folders -> metadata
+	srv.CreateBucket("shared_folders")
+	srv.CreateBucket("user_file_state")
+
 	reader := bufio.NewReader(os.Stdin)
-	go startServer("50051", user, watcher)
 
 	time.Sleep(time.Second * 2) // Wait for the server to spin up
 
@@ -100,7 +105,7 @@ func main() {
 					parentDir := filepath.Dir(event.Name)
 
 					// notify shared folder
-					NotifySharedFolderUsers(parentDir)
+					srv.NotifySharedFolderUsers(parentDir)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					fmt.Println("File deleted:", event.Name)
@@ -138,7 +143,7 @@ func main() {
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
-			if err := AddFolderToBucket(db, folder, "shared_folders", watcher); err != nil {
+			if err := srv.AddFolderToBucket(folder, "shared_folders", watcher); err != nil {
 				log.Println("Error adding folder to bucket:", err)
 			} else {
 				fmt.Println("Folder added to bucket.")
@@ -190,7 +195,7 @@ func main() {
 			}
 			fmt.Println("Peer successfully connected and added.")
 		case "4":
-			GetFoldersInBucket("my.db", "shared_folders")
+			srv.GetFoldersInBucket("shared_folders")
 
 		case "5":
 			for key := range user.Peers {
@@ -225,16 +230,15 @@ func main() {
 			defer conn.Close()
 
 			fmt.Print("What folder would you like to share? ")
-			GetFoldersInBucket("my.db", "shared_folders")
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
 
 			// Now share a folder (e.g., "tmp")
-			err := ShareFolder(db, folder, client)
+			err := srv.ShareFolder(folder, client)
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
-			AddUserToSharedFolder(folder, peer.IPAddress)
+			srv.AddUserToSharedFolder(folder, peer.IPAddress)
 
 		default:
 			fmt.Println("Exiting program")
