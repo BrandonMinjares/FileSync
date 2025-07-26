@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -71,6 +72,18 @@ func main() {
 	s := grpc.NewServer()
 	srv := NewServer(db, user, watcher)
 	pb.RegisterFileSyncServiceServer(s, srv)
+
+	go func() {
+		lis, err := net.Listen("tcp", ":50051")
+		if err != nil {
+			log.Fatalf("Failed to listen: %v", err)
+		}
+
+		log.Println("Starting gRPC server on port 50051...")
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
+		}
+	}()
 
 	// bucket that will contain user folders -> metadata
 	srv.CreateBucket("shared_folders")
