@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	pb "synthesize/protos"
@@ -112,13 +111,10 @@ func main() {
 						return
 					}
 					fmt.Println("File Name:", info.Name())
-					fmt.Println("Size (bytes):", info.Size())
-					fmt.Println("Last Modified:", info.ModTime())
 
-					parentDir := filepath.Dir(event.Name)
-
+					srv.UpdateFileStateInBucket(event.Name)
 					// notify shared folder
-					srv.NotifySharedFolderUsers(parentDir)
+					// srv.NotifySharedFolderUsers(parentDir)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					fmt.Println("File deleted:", event.Name)

@@ -98,6 +98,40 @@ func (s *server) AddFilesToFileStateBucket(folder string) error {
 	return nil
 }
 
+func (s *server) UpdateFileStateInBucket(path string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("user_file_state"))
+		if b == nil {
+			fmt.Print("Bucket user_file_state does NOT exist\n")
+			return fmt.Errorf("bucket user_file_state does not exist")
+		}
+
+		data := b.Get([]byte(path))
+		if data == nil {
+			fmt.Printf("No data found for key: %q\n", path)
+			return nil
+		}
+
+		var meta FileMeta
+		if err := json.Unmarshal(data, &meta); err != nil {
+			return fmt.Errorf("failed to unmarshal file meta: %w", err)
+		}
+
+		// Get updated time and size of file
+		info, _ := os.Stat(path)
+		meta.ModTime = info.ModTime()
+		meta.Size = info.Size()
+
+		data, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("failed to marshal IP list: %w", err)
+		}
+
+		fmt.Printf("Updated metadata for %q: %+v\n", path, meta)
+		return b.Put([]byte(path), data)
+	})
+}
+
 func (s *server) GetAllFilesInBucket(bucket string) error {
 	return s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
