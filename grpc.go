@@ -253,8 +253,8 @@ func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*
 	return resp, nil
 }
 
-func (s *server) FileUpdateResponse(ctx context.Context, req *pb.UpdateRequest) (*pb.Ack, error) {
+func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
 	print("in update resp")
 
-	return &pb.Ack{Received: true, Message: "Will Accept Update"}, nil
+	return &pb.UpdateResponse{Accepted: true, Message: "Will Accept Update"}, nil
 }
