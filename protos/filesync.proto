@@ -3,13 +3,18 @@ syntax = "proto3";
 package filesyncpb;
 option go_package = "synthesize/protos";
 
+import "google/protobuf/timestamp.proto";
+
+
+
 service FileSyncService {
   rpc SendFile(FileChunk) returns (Ack);
   rpc ReceiveFile(Empty) returns (stream FileChunk);
   rpc RequestConnection(ConnectionRequest) returns (ConnectionResponse);
   rpc ReceiveFolder(stream FolderChunk) returns (Ack);
-
+  rpc RequestUpdate(UpdateRequest) returns (UpdateResponse);
 }
+
 
 message FileChunk {
   string filename = 1;
@@ -37,5 +42,17 @@ message ConnectionResponse {
   bool accepted = 1;
   string message = 2;
 }
+
+message UpdateRequest {
+  string filePath = 1;
+  string IP = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message UpdateResponse {
+  bool accepted = 1;
+  string message = 2;
+}
+
 
 message Empty {}

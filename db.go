@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Struct to hold metadata
@@ -209,28 +212,69 @@ func (s *server) GetFoldersInBucket(bucket string) error {
 	})
 }
 
-func (s *server) NotifySharedFolderUsers(folder string) error {
+/*
+Get all IP's in bucket
+Send ping to the IP containing filePath, metadata
+Receive ping
+Check receiving users bucket with that filepath
+Compare metadata
+If Senders metadata is after Receivers metadata user can agree to change file contents
+
+If so, send ping back confirming Receiver agreed
+Then send file contents over to receiver
+Receiver updates the file in their bucket along with metadata
+
+SendNotification(modTime, filePath, ipAddress)
+*/
+func (s *server) NotifySharedFolderUsers(filePath string) error {
+	parts := strings.Split(filePath, "/")
+	folderName := parts[0]
+	fileInfo, _ := os.Stat(filePath)
+
+	modTime := fileInfo.ModTime() // time.Time
+	timestamp := timestamppb.New(modTime)
+
 	return s.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("shared_folders"))
 		if b == nil {
 			return fmt.Errorf("bucket %q does not exist", "shared_folders")
 		}
 
-		// Get the existing value
-		existing := b.Get([]byte(folder))
+		existing := b.Get([]byte(folderName))
 		if existing == nil {
-			fmt.Printf("No users found for folder: %s\n", folder)
+			fmt.Printf("No users found for folder: %s\n", folderName)
 			return nil
 		}
-
-		// Debug print raw value
-		fmt.Printf("IP Addresses Sharing Folder: %s\n", string(existing))
 
 		var userIPs []string
 		if err := json.Unmarshal(existing, &userIPs); err != nil {
 			return fmt.Errorf("failed to unmarshal existing user list: %w", err)
 		}
+		var wg sync.WaitGroup
 
+		for _, IP := range userIPs {
+			wg.Add(1)
+			go func(ip string) {
+				defer wg.Done()
+
+				res, err := FileUpdateRequest(filePath, ip, timestamp)
+				if err != nil {
+					fmt.Printf("Error contacting %s: %v\n", ip, err)
+					// send future update
+					return
+				}
+				if res.Message == "Will Accept Update" {
+					print("accpeting")
+					// SendFileUpdate(filePath, ip)
+				}
+			}(IP)
+		}
+
+		wg.Wait()
 		return nil
 	})
+}
+
+func SendFileUpdate(filePath, ip string) {
+	print(ip)
 }

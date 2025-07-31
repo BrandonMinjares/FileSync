@@ -13,6 +13,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/fsnotify/fsnotify"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -225,4 +226,35 @@ func AddPeer(user *User, peerName, peerIp string) error {
 	}
 	println("Added Peer")
 	return nil
+}
+
+func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
+	// Connect to the peer
+	client, conn := connectToPeer(IP, "john", "50051")
+	defer conn.Close()
+
+	// Give user 10 seconds to respond
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Send the gRPC request
+	resp, err := client.RequestUpdate(ctx, &pb.UpdateRequest{
+		FilePath:  filePath,
+		IP:        IP,
+		Timestamp: timestamp,
+	})
+
+	// Handle error or return response
+	if err != nil {
+		return nil, fmt.Errorf("failed to contact peer %s: %w", IP, err)
+	}
+
+	log.Printf("Peer %s responded: accepted=%v, message=%s", IP, resp.GetAccepted(), resp.GetMessage())
+	return resp, nil
+}
+
+func (s *server) FileUpdateResponse(ctx context.Context, req *pb.UpdateRequest) (*pb.Ack, error) {
+	print("in update resp")
+
+	return &pb.Ack{Received: true, Message: "Will Accept Update"}, nil
 }

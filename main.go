@@ -113,8 +113,10 @@ func main() {
 					fmt.Println("File Name:", info.Name())
 
 					srv.UpdateFileStateInBucket(event.Name)
+
 					// notify shared folder
-					// srv.NotifySharedFolderUsers(parentDir)
+					// sending folder
+					srv.NotifySharedFolderUsers(event.Name)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
 					fmt.Println("File deleted:", event.Name)
