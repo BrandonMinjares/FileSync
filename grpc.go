@@ -254,7 +254,21 @@ func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*
 }
 
 func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
-	print("in update resp")
+	filePath := req.FilePath
 
-	return &pb.UpdateResponse{Accepted: true, Message: "Will Accept Update"}, nil
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
+	}
+
+	localModTime := fileInfo.ModTime()
+	remoteTimestamp := req.Timestamp.AsTime()
+
+	if remoteTimestamp.After(localModTime) {
+		fmt.Println("Remote version is newer → accept update")
+		return &pb.UpdateResponse{Accepted: true, Message: "Will accept update"}, nil
+	}
+
+	fmt.Println("Local version is newer or equal → reject update")
+	return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
 }
