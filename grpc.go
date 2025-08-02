@@ -272,3 +272,54 @@ func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.
 	fmt.Println("Local version is newer or equal → reject update")
 	return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
 }
+
+func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error) {
+	// Connect to the peer
+	client, conn := connectToPeer(IP, "john", "50051")
+	defer conn.Close()
+
+	// Give user 10 seconds to respond
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+	}
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	buf := make([]byte, 1024)
+
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	modTime := fileInfo.ModTime()              // time.Time
+	protoTimestamp := timestamppb.New(modTime) // *timestamppb.Timestamp
+
+	// Send the gRPC request
+	resp, err := client.ReceiveUpdatedFile(ctx, &pb.FileUpdate{
+		Data:      buf[:n],
+		FilePath:  filePath,
+		Timestamp: protoTimestamp,
+	})
+
+	if err != nil {
+		return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
+	}
+	if !resp.Received {
+		return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
+	}
+
+	return &pb.UpdateResponse{Accepted: true, Message: "Update not needed"}, nil
+}
+
+func (s *server) ReceiveUpdatedFile(ctx context.Context, req *pb.FileUpdate) (*pb.Ack, error) {
+	print("in receive file function")
+	return nil, nil
+}

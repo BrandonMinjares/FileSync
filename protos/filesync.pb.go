@@ -410,6 +410,66 @@ func (x *UpdateResponse) GetMessage() string {
 	return ""
 }
 
+type FileUpdate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	FilePath      string                 `protobuf:"bytes,2,opt,name=filePath,proto3" json:"filePath,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FileUpdate) Reset() {
+	*x = FileUpdate{}
+	mi := &file_protos_filesync_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FileUpdate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FileUpdate) ProtoMessage() {}
+
+func (x *FileUpdate) ProtoReflect() protoreflect.Message {
+	mi := &file_protos_filesync_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FileUpdate.ProtoReflect.Descriptor instead.
+func (*FileUpdate) Descriptor() ([]byte, []int) {
+	return file_protos_filesync_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FileUpdate) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *FileUpdate) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *FileUpdate) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
 type Empty struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -418,7 +478,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_protos_filesync_proto_msgTypes[7]
+	mi := &file_protos_filesync_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +490,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_protos_filesync_proto_msgTypes[7]
+	mi := &file_protos_filesync_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +503,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_protos_filesync_proto_rawDescGZIP(), []int{7}
+	return file_protos_filesync_proto_rawDescGZIP(), []int{8}
 }
 
 var File_protos_filesync_proto protoreflect.FileDescriptor
@@ -478,14 +538,20 @@ const file_protos_filesync_proto_rawDesc = "" +
 	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"F\n" +
 	"\x0eUpdateResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\a\n" +
-	"\x05Empty2\xd9\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"v\n" +
+	"\n" +
+	"FileUpdate\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12\x1a\n" +
+	"\bfilePath\x18\x02 \x01(\tR\bfilePath\x128\n" +
+	"\ttimestamp\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\a\n" +
+	"\x05Empty2\x98\x03\n" +
 	"\x0fFileSyncService\x122\n" +
 	"\bSendFile\x12\x15.filesyncpb.FileChunk\x1a\x0f.filesyncpb.Ack\x129\n" +
 	"\vReceiveFile\x12\x11.filesyncpb.Empty\x1a\x15.filesyncpb.FileChunk0\x01\x12R\n" +
 	"\x11RequestConnection\x12\x1d.filesyncpb.ConnectionRequest\x1a\x1e.filesyncpb.ConnectionResponse\x12;\n" +
 	"\rReceiveFolder\x12\x17.filesyncpb.FolderChunk\x1a\x0f.filesyncpb.Ack(\x01\x12F\n" +
-	"\rRequestUpdate\x12\x19.filesyncpb.UpdateRequest\x1a\x1a.filesyncpb.UpdateResponseB\x13Z\x11synthesize/protosb\x06proto3"
+	"\rRequestUpdate\x12\x19.filesyncpb.UpdateRequest\x1a\x1a.filesyncpb.UpdateResponse\x12=\n" +
+	"\x12ReceiveUpdatedFile\x12\x16.filesyncpb.FileUpdate\x1a\x0f.filesyncpb.AckB\x13Z\x11synthesize/protosb\x06proto3"
 
 var (
 	file_protos_filesync_proto_rawDescOnce sync.Once
@@ -499,7 +565,7 @@ func file_protos_filesync_proto_rawDescGZIP() []byte {
 	return file_protos_filesync_proto_rawDescData
 }
 
-var file_protos_filesync_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_protos_filesync_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_protos_filesync_proto_goTypes = []any{
 	(*FileChunk)(nil),             // 0: filesyncpb.FileChunk
 	(*FolderChunk)(nil),           // 1: filesyncpb.FolderChunk
@@ -508,27 +574,31 @@ var file_protos_filesync_proto_goTypes = []any{
 	(*ConnectionResponse)(nil),    // 4: filesyncpb.ConnectionResponse
 	(*UpdateRequest)(nil),         // 5: filesyncpb.UpdateRequest
 	(*UpdateResponse)(nil),        // 6: filesyncpb.UpdateResponse
-	(*Empty)(nil),                 // 7: filesyncpb.Empty
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(*FileUpdate)(nil),            // 7: filesyncpb.FileUpdate
+	(*Empty)(nil),                 // 8: filesyncpb.Empty
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
 }
 var file_protos_filesync_proto_depIdxs = []int32{
 	0, // 0: filesyncpb.FolderChunk.file_chunk:type_name -> filesyncpb.FileChunk
-	8, // 1: filesyncpb.UpdateRequest.timestamp:type_name -> google.protobuf.Timestamp
-	0, // 2: filesyncpb.FileSyncService.SendFile:input_type -> filesyncpb.FileChunk
-	7, // 3: filesyncpb.FileSyncService.ReceiveFile:input_type -> filesyncpb.Empty
-	3, // 4: filesyncpb.FileSyncService.RequestConnection:input_type -> filesyncpb.ConnectionRequest
-	1, // 5: filesyncpb.FileSyncService.ReceiveFolder:input_type -> filesyncpb.FolderChunk
-	5, // 6: filesyncpb.FileSyncService.RequestUpdate:input_type -> filesyncpb.UpdateRequest
-	2, // 7: filesyncpb.FileSyncService.SendFile:output_type -> filesyncpb.Ack
-	0, // 8: filesyncpb.FileSyncService.ReceiveFile:output_type -> filesyncpb.FileChunk
-	4, // 9: filesyncpb.FileSyncService.RequestConnection:output_type -> filesyncpb.ConnectionResponse
-	2, // 10: filesyncpb.FileSyncService.ReceiveFolder:output_type -> filesyncpb.Ack
-	6, // 11: filesyncpb.FileSyncService.RequestUpdate:output_type -> filesyncpb.UpdateResponse
-	7, // [7:12] is the sub-list for method output_type
-	2, // [2:7] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	9, // 1: filesyncpb.UpdateRequest.timestamp:type_name -> google.protobuf.Timestamp
+	9, // 2: filesyncpb.FileUpdate.timestamp:type_name -> google.protobuf.Timestamp
+	0, // 3: filesyncpb.FileSyncService.SendFile:input_type -> filesyncpb.FileChunk
+	8, // 4: filesyncpb.FileSyncService.ReceiveFile:input_type -> filesyncpb.Empty
+	3, // 5: filesyncpb.FileSyncService.RequestConnection:input_type -> filesyncpb.ConnectionRequest
+	1, // 6: filesyncpb.FileSyncService.ReceiveFolder:input_type -> filesyncpb.FolderChunk
+	5, // 7: filesyncpb.FileSyncService.RequestUpdate:input_type -> filesyncpb.UpdateRequest
+	7, // 8: filesyncpb.FileSyncService.ReceiveUpdatedFile:input_type -> filesyncpb.FileUpdate
+	2, // 9: filesyncpb.FileSyncService.SendFile:output_type -> filesyncpb.Ack
+	0, // 10: filesyncpb.FileSyncService.ReceiveFile:output_type -> filesyncpb.FileChunk
+	4, // 11: filesyncpb.FileSyncService.RequestConnection:output_type -> filesyncpb.ConnectionResponse
+	2, // 12: filesyncpb.FileSyncService.ReceiveFolder:output_type -> filesyncpb.Ack
+	6, // 13: filesyncpb.FileSyncService.RequestUpdate:output_type -> filesyncpb.UpdateResponse
+	2, // 14: filesyncpb.FileSyncService.ReceiveUpdatedFile:output_type -> filesyncpb.Ack
+	9, // [9:15] is the sub-list for method output_type
+	3, // [3:9] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_protos_filesync_proto_init() }
@@ -542,7 +612,7 @@ func file_protos_filesync_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_protos_filesync_proto_rawDesc), len(file_protos_filesync_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

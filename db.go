@@ -265,7 +265,7 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 				}
 				if res.Message == "Will Accept Update" {
 					print("accept file")
-					// SendFileUpdate(filePath, ip)
+					s.SendFileUpdate(filePath, ip)
 				}
 			}(IP)
 		}
@@ -273,8 +273,4 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 		wg.Wait()
 		return nil
 	})
-}
-
-func SendFileUpdate(filePath, ip string) {
-	// print(ip)
 }

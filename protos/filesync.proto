@@ -5,17 +5,6 @@ option go_package = "synthesize/protos";
 
 import "google/protobuf/timestamp.proto";
 
-
-
-service FileSyncService {
-  rpc SendFile(FileChunk) returns (Ack);
-  rpc ReceiveFile(Empty) returns (stream FileChunk);
-  rpc RequestConnection(ConnectionRequest) returns (ConnectionResponse);
-  rpc ReceiveFolder(stream FolderChunk) returns (Ack);
-  rpc RequestUpdate(UpdateRequest) returns (UpdateResponse);
-}
-
-
 message FileChunk {
   string filename = 1;
   bytes data = 2;
@@ -54,5 +43,19 @@ message UpdateResponse {
   string message = 2;
 }
 
+message FileUpdate {
+  bytes data = 1;
+  string filePath = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
 
 message Empty {}
+
+service FileSyncService {
+  rpc SendFile(FileChunk) returns (Ack);
+  rpc ReceiveFile(Empty) returns (stream FileChunk);
+  rpc RequestConnection(ConnectionRequest) returns (ConnectionResponse);
+  rpc ReceiveFolder(stream FolderChunk) returns (Ack);
+  rpc RequestUpdate(UpdateRequest) returns (UpdateResponse);
+  rpc ReceiveUpdatedFile(FileUpdate) returns (Ack);
+}
