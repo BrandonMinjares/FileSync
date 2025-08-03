@@ -171,6 +171,7 @@ func (s *server) AddUserToSharedFolder(folder string, ip string) error {
 				return fmt.Errorf("failed to unmarshal IP list: %w", err)
 			}
 		}
+		print("in add user to shared")
 
 		// Avoid duplicates
 		for _, existingIP := range userIPs {

@@ -68,6 +68,9 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		senderIP := chunk.GetSenderIp()
 
 		// Record sender IP for the folder
+		print("in receive")
+		print(chunk.Foldername)
+		print(chunk.GetFoldername())
 		err = s.AddUserToSharedFolder(chunk.Foldername, senderIP)
 		if err != nil {
 			return fmt.Errorf("failed to add sender IP: %w", err)
