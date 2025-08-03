@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -56,7 +57,6 @@ func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, er
 
 func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) error {
 	for {
-
 		chunk, err := stream.Recv()
 		if err == io.EOF {
 			return stream.SendAndClose(&pb.Ack{Received: true, Message: "All chunks received."})
@@ -66,11 +66,6 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		}
 
 		senderIP := chunk.GetSenderIp()
-
-		// Record sender IP for the folder
-		print("in receive")
-		print(chunk.Foldername)
-		print(chunk.GetFoldername())
 
 		s.AddFolderToBucket(chunk.Foldername, "shared_folders", s.watcher)
 		err = s.AddUserToSharedFolder(chunk.Foldername, senderIP)
@@ -106,11 +101,6 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		}
 
 		fmt.Printf("Received %s from folder %s (chunk #%d)\n", fileChunk.Filename, chunk.Foldername, fileChunk.ChunkNumber)
-
-		// Maybe multiple instances of db being opened?
-
-		fmt.Printf("Folder added to db")
-		fmt.Printf("Now watching folder %s for changes", chunk.Foldername)
 	}
 }
 
@@ -218,8 +208,26 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 	// For simplicity, auto-accept now; you can later build a prompt/UI
+	reader := bufio.NewReader(os.Stdin)
+	print("Do you want to connect (y/n)?")
+	input, _ := reader.ReadString('\n')
 
-	AddPeer(s.user, req.RequesterName, req.RequesterId)
+	switch input {
+	case "n":
+		return &pb.ConnectionResponse{
+			Accepted: false,
+			Message:  "Connection rejected!",
+		}, nil
+	case "y":
+		AddPeer(s.user, req.RequesterName, req.RequesterId)
+
+		return &pb.ConnectionResponse{
+			Accepted: true,
+			Message:  "Connection accepted!",
+		}, nil
+	default:
+		fmt.Println("Invalid input")
+	}
 
 	return &pb.ConnectionResponse{
 		Accepted: true,
