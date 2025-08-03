@@ -310,7 +310,7 @@ func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error)
 	})
 
 	if err != nil {
-		return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
+		return nil, err
 	}
 	if !resp.Received {
 		return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
@@ -320,6 +320,6 @@ func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error)
 }
 
 func (s *server) ReceiveUpdatedFile(ctx context.Context, req *pb.FileUpdate) (*pb.Ack, error) {
-	print("in receive file function")
+	os.WriteFile(req.FilePath, req.Data, 0644) // Overwrites or creates the file
 	return nil, nil
 }
