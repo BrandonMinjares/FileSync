@@ -48,7 +48,10 @@ func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watc
 		if b == nil {
 			return fmt.Errorf("bucket %s does not exist", bucket)
 		}
-		b.Put([]byte(folder), emptyIPList)
+		if b.Get([]byte(folder)) == nil {
+			b.Put([]byte(folder), emptyIPList)
+		}
+
 		return nil
 	})
 	if err != nil {

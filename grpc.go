@@ -71,6 +71,8 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 		print("in receive")
 		print(chunk.Foldername)
 		print(chunk.GetFoldername())
+
+		s.AddFolderToBucket(chunk.Foldername, "shared_folders", s.watcher)
 		err = s.AddUserToSharedFolder(chunk.Foldername, senderIP)
 		if err != nil {
 			return fmt.Errorf("failed to add sender IP: %w", err)
@@ -107,7 +109,6 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 
 		// Maybe multiple instances of db being opened?
 
-		s.AddFolderToBucket(chunk.Foldername, "shared_folders", s.watcher)
 		fmt.Printf("Folder added to db")
 		fmt.Printf("Now watching folder %s for changes", chunk.Foldername)
 	}
