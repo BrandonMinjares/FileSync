@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	pb "synthesize/protos"
 	"time"
 
@@ -207,30 +205,11 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Do you want to connect (y/n)? ")
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
 
-	if input == "n" {
-		return &pb.ConnectionResponse{
-			Accepted: false,
-			Message:  "Connection rejected!",
-		}, nil
-	}
-
-	if input == "y" {
-		AddPeer(s.user, req.RequesterName, req.RequesterId)
-		return &pb.ConnectionResponse{
-			Accepted: true,
-			Message:  "Connection accepted!",
-		}, nil
-	}
-
-	// Any other input gets a clean rejection instead of hanging
+	AddPeer(s.user, req.RequesterName, req.RequesterId)
 	return &pb.ConnectionResponse{
-		Accepted: false,
-		Message:  "Invalid response. Connection rejected by default.",
+		Accepted: true,
+		Message:  "Connection accepted!",
 	}, nil
 }
 
