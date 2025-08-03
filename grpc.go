@@ -8,16 +8,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	pb "synthesize/protos"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type server struct {
@@ -182,7 +182,7 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 
 	client := pb.NewFileSyncServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
@@ -207,31 +207,30 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
-	// For simplicity, auto-accept now; you can later build a prompt/UI
 	reader := bufio.NewReader(os.Stdin)
-	print("Do you want to connect (y/n)?")
+	fmt.Print("Do you want to connect (y/n)? ")
 	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
 
-	switch input {
-	case "n":
+	if input == "n" {
 		return &pb.ConnectionResponse{
 			Accepted: false,
 			Message:  "Connection rejected!",
 		}, nil
-	case "y":
-		AddPeer(s.user, req.RequesterName, req.RequesterId)
+	}
 
+	if input == "y" {
+		AddPeer(s.user, req.RequesterName, req.RequesterId)
 		return &pb.ConnectionResponse{
 			Accepted: true,
 			Message:  "Connection accepted!",
 		}, nil
-	default:
-		fmt.Println("Invalid input")
 	}
 
+	// Any other input gets a clean rejection instead of hanging
 	return &pb.ConnectionResponse{
-		Accepted: true,
-		Message:  "Connection accepted!",
+		Accepted: false,
+		Message:  "Invalid response. Connection rejected by default.",
 	}, nil
 }
 
