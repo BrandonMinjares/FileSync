@@ -56,6 +56,7 @@ func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, er
 
 func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) error {
 	for {
+
 		chunk, err := stream.Recv()
 		if err == io.EOF {
 			return stream.SendAndClose(&pb.Ack{Received: true, Message: "All chunks received."})
@@ -64,6 +65,13 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			return err
 		}
 
+		senderIP := chunk.GetSenderIp()
+
+		// Record sender IP for the folder
+		err = s.AddUserToSharedFolder(chunk.Foldername, senderIP)
+		if err != nil {
+			return fmt.Errorf("failed to add sender IP: %w", err)
+		}
 		if !dirExists(chunk.GetFoldername()) {
 			err := os.MkdirAll(chunk.GetFoldername(), 0755)
 			if err != nil {
@@ -145,6 +153,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 
 			err = stream.Send(&pb.FolderChunk{
 				Foldername: folderPath,
+				SenderIp:   s.user.IP, // <-- add this
 				FileChunk: &pb.FileChunk{
 					Filename:    entry.Name(),
 					Data:        buf[:n],
@@ -152,6 +161,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 					IsLast:      isLast,
 				},
 			})
+
 			if err != nil {
 				return fmt.Errorf("failed to send chunk: %w", err)
 			}

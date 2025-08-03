@@ -94,6 +94,7 @@ type FolderChunk struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Foldername    string                 `protobuf:"bytes,1,opt,name=foldername,proto3" json:"foldername,omitempty"`
 	FileChunk     *FileChunk             `protobuf:"bytes,2,opt,name=file_chunk,json=fileChunk,proto3" json:"file_chunk,omitempty"`
+	SenderIp      string                 `protobuf:"bytes,3,opt,name=sender_ip,json=senderIp,proto3" json:"sender_ip,omitempty"` // <-- new field
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -140,6 +141,13 @@ func (x *FolderChunk) GetFileChunk() *FileChunk {
 		return x.FileChunk
 	}
 	return nil
+}
+
+func (x *FolderChunk) GetSenderIp() string {
+	if x != nil {
+		return x.SenderIp
+	}
+	return ""
 }
 
 type Ack struct {
@@ -516,13 +524,14 @@ const file_protos_filesync_proto_rawDesc = "" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12!\n" +
 	"\fchunk_number\x18\x03 \x01(\x05R\vchunkNumber\x12\x17\n" +
-	"\ais_last\x18\x04 \x01(\bR\x06isLast\"c\n" +
+	"\ais_last\x18\x04 \x01(\bR\x06isLast\"\x80\x01\n" +
 	"\vFolderChunk\x12\x1e\n" +
 	"\n" +
 	"foldername\x18\x01 \x01(\tR\n" +
 	"foldername\x124\n" +
 	"\n" +
-	"file_chunk\x18\x02 \x01(\v2\x15.filesyncpb.FileChunkR\tfileChunk\";\n" +
+	"file_chunk\x18\x02 \x01(\v2\x15.filesyncpb.FileChunkR\tfileChunk\x12\x1b\n" +
+	"\tsender_ip\x18\x03 \x01(\tR\bsenderIp\";\n" +
 	"\x03Ack\x12\x1a\n" +
 	"\breceived\x18\x01 \x01(\bR\breceived\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"]\n" +

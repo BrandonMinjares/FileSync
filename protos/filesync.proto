@@ -15,6 +15,7 @@ message FileChunk {
 message FolderChunk {
   string foldername = 1;
   FileChunk file_chunk = 2;
+  string sender_ip = 3; // <-- new field
 }
 
 message Ack {
