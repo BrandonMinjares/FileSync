@@ -145,7 +145,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 
 			err = stream.Send(&pb.FolderChunk{
 				Foldername: folderPath,
-				SenderIp:   s.user.IP, // <-- add this
+				SenderIp:   s.user.IP,
 				FileChunk: &pb.FileChunk{
 					Filename:    entry.Name(),
 					Data:        buf[:n],

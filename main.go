@@ -136,12 +136,11 @@ func main() {
 	for {
 		fmt.Print(`
 				Would you like to:
-				2. Add a folder to a bucket
-				3. Connect to a new user
-				4. List all folders in bucket
-				5. List connected users
-				6. List all buckets
-				7. Share folder with user
+				1. Add a folder to a bucket
+				2. Connect to a new user
+				3. Share folder with user
+				4. List connected users
+				5. List all folders in bucket
 				Type "exit" to quit
 				> `)
 
@@ -149,7 +148,7 @@ func main() {
 		input = strings.TrimSpace(input)
 
 		switch input {
-		case "2":
+		case "1":
 			fmt.Print("What folder would you like to add? ")
 			folder, _ := reader.ReadString('\n')
 			folder = strings.TrimSpace(folder)
@@ -166,7 +165,7 @@ func main() {
 			}
 			fmt.Printf("Successfully watching %s", folder)
 
-		case "3":
+		case "2":
 			fmt.Print("What is the private IP of the peer you want to connect with? ")
 			PrivateIP, _ := reader.ReadString('\n')
 			PrivateIP = strings.TrimSpace(PrivateIP)
@@ -205,15 +204,7 @@ func main() {
 				IPAddress: PrivateIP,
 			}
 			fmt.Println("Peer successfully connected and added.")
-		case "4":
-			srv.GetFoldersInBucket("shared_folders")
-
-		case "5":
-			for key := range user.Peers {
-				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
-			}
-
-		case "7":
+		case "3":
 			fmt.Println("Connected peers:")
 			i := 1
 			peerIPs := []string{}
@@ -250,7 +241,12 @@ func main() {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
 			srv.AddUserToSharedFolder(folder, peer.IPAddress)
-
+		case "4":
+			for key := range user.Peers {
+				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
+			}
+		case "5":
+			srv.GetFoldersInBucket("shared_folders")
 		default:
 			fmt.Println("Exiting program")
 			return
