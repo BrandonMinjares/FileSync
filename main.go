@@ -58,7 +58,6 @@ func main() {
 
 	user := &User{
 		Name:  "bran",
-		IP:    MyPrivateIP,
 		Peers: make(map[string]*Peer),
 	}
 
