@@ -9,58 +9,51 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"synthesize/keys"
 	pb "synthesize/protos"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
-
 	"github.com/fsnotify/fsnotify"
+	bolt "go.etcd.io/bbolt"
 	"google.golang.org/grpc"
 )
 
-type Peer struct {
-	IPAddress string `json:"ip_address"` // For initiating gRPC connection
-	Name      string `json:"name"`       // Optional friendly name
-}
-
-/*
-*
-UserA adds folder to bucket
-UserA add connects with UserB
-UserA wants to shared folder
-
-	if folder not in UserA's folders:
-			create uuid of folder
-			add to userA's folders
-
-	send folder, folderid to UserB
-	add UserB to SharedWith
-*/
-type Folder struct {
-	FolderID   string
-	Path       string
-	SharedWith []string
-}
+type PeerID []byte // ed25519.PublicKey bytes
 
 type User struct {
-	Name    string
-	IP      string
-	Peers   map[string]*Peer   `json:"peers"`   // Map of peer ID → Peer object
-	Folders map[string]*Folder `json:"folders"` // Map of peer ID → Peer object
+	Name   string
+	SelfID PeerID
 }
 
 func main() {
+	// Create cryptographic key pair or load if already exist
+	kp, err := keys.GenerateOrLoad("") // stores under .filesync
+	if err != nil {
+		panic(err)
+	}
+
 	db, err := bolt.Open("my.db", 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	user := &User{
-		Name:  "bran",
-		Peers: make(map[string]*Peer),
+	// Initialize databases -- if already existed or do not exist return user name
+	err = InitDB(db)
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	user := &User{
+		// Device id which is cryptographic public key
+		SelfID: PeerID(kp.Public),
+	}
+
+	// user.Name = loadUsername(db)
+	// user.Peers = loadPeers(db)
+	// user.Folders = loadFolders(db, watcher)
+
+	// Watches for changes in File State
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -83,15 +76,11 @@ func main() {
 		}
 	}()
 
-	// bucket that will contain user folders -> metadata
-	srv.CreateBucket("shared_folders")
-	srv.CreateBucket("user_file_state")
-
 	reader := bufio.NewReader(os.Stdin)
+	// Wait for the server to spin up
+	time.Sleep(time.Second * 2)
 
-	time.Sleep(time.Second * 2) // Wait for the server to spin up
-
-	// Start goroutine to listen for events
+	// Listen for events
 	go func() {
 		for {
 			select {
@@ -112,9 +101,6 @@ func main() {
 					fmt.Println("File Name:", info.Name())
 
 					srv.UpdateFileStateInBucket(event.Name)
-
-					// notify shared folder
-					// sending folder
 					srv.NotifySharedFolderUsers(event.Name)
 				}
 				if event.Op&fsnotify.Remove == fsnotify.Remove {
@@ -165,7 +151,7 @@ func main() {
 			fmt.Printf("Successfully watching %s", folder)
 
 		case "2":
-			fmt.Print("What is the private IP of the peer you want to connect with? ")
+			fmt.Print("What is the Device ID of the peer you want to connect with? ")
 			PrivateIP, _ := reader.ReadString('\n')
 			PrivateIP = strings.TrimSpace(PrivateIP)
 

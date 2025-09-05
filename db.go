@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,15 +21,72 @@ type FileMeta struct {
 	Size    int64     `json:"size"`
 }
 
-func (s *server) CreateBucket(bucketName string) error {
-	err := s.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if err != nil {
-			return fmt.Errorf("failed to create bucket '%s': %w", "files", err)
+func InitDB(db *bolt.DB) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+		// Init each bucket
+		if err := InitUserIdentity(tx); err != nil {
+			return err
+		}
+		if err := InitTrustedPeers(tx); err != nil {
+			return err
+		}
+		if err := InitSharedFolders(tx); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists([]byte("user_file_state")); err != nil {
+			return err
 		}
 		return nil
 	})
 	return err
+}
+
+func InitUserIdentity(tx *bolt.Tx) error {
+	b, err := tx.CreateBucketIfNotExists([]byte("user_identity"))
+	if err != nil {
+		return fmt.Errorf("failed to create user_identity bucket: %w", err)
+	}
+
+	pub := b.Get([]byte("public_key"))
+	priv := b.Get([]byte("private_key"))
+	name := b.Get([]byte("name"))
+
+	// Already initialized
+	if pub != nil && priv != nil && name != nil {
+		// return &User{
+		// Name:   string(name),
+		// SelfID: PeerID(pub),
+		// }, nil
+		return nil
+	}
+
+	// Otherwise, first run → ask user
+	fmt.Print("Enter your username: ")
+	var input string
+	fmt.Scanln(&input)
+
+	pubKey, privKey, _ := ed25519.GenerateKey(nil)
+	b.Put([]byte("public_key"), pubKey)
+	b.Put([]byte("private_key"), privKey)
+	b.Put([]byte("name"), []byte(input))
+
+	return nil
+}
+
+func InitTrustedPeers(tx *bolt.Tx) error {
+	_, err := tx.CreateBucketIfNotExists([]byte("trusted_peers"))
+	if err != nil {
+		return fmt.Errorf("failed to create trusted_peers bucket: %w", err)
+	}
+	return nil
+}
+
+func InitSharedFolders(tx *bolt.Tx) error {
+	_, err := tx.CreateBucketIfNotExists([]byte("shared_folders"))
+	if err != nil {
+		return fmt.Errorf("failed to create shared_folders bucket: %w", err)
+	}
+	return nil
 }
 
 func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
