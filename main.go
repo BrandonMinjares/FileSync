@@ -25,6 +25,12 @@ type User struct {
 	SelfID PeerID
 }
 
+type Peer struct {
+	Name      string   `json:"name"`
+	Addresses []string `json:"addresses"`
+	LastSeen  int64    `json:"last_seen"` // Unix timestamp
+}
+
 func main() {
 	// Open DB
 	db, err := bolt.Open("my.db", 0600, nil)
