@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -58,38 +57,6 @@ func loadUsername(db *bolt.DB) (string, error) {
 		})
 	}
 	return name, nil
-}
-
-func InitUserIdentity(tx *bolt.Tx) error {
-	b, err := tx.CreateBucketIfNotExists([]byte("user_identity"))
-	if err != nil {
-		return fmt.Errorf("failed to create user_identity bucket: %w", err)
-	}
-
-	pub := b.Get([]byte("public_key"))
-	priv := b.Get([]byte("private_key"))
-	name := b.Get([]byte("name"))
-
-	// Already initialized
-	if pub != nil && priv != nil && name != nil {
-		// return &User{
-		// Name:   string(name),
-		// SelfID: PeerID(pub),
-		// }, nil
-		return nil
-	}
-
-	// Otherwise, first run → ask user
-	fmt.Print("Enter your username: ")
-	var input string
-	fmt.Scanln(&input)
-
-	pubKey, privKey, _ := ed25519.GenerateKey(nil)
-	b.Put([]byte("public_key"), pubKey)
-	b.Put([]byte("private_key"), privKey)
-	b.Put([]byte("name"), []byte(input))
-
-	return nil
 }
 
 func InitTrustedPeers(tx *bolt.Tx) error {
