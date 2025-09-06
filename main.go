@@ -26,32 +26,34 @@ type User struct {
 }
 
 func main() {
-	// Create cryptographic key pair or load if already exist
-	kp, err := keys.GenerateOrLoad("") // stores under .filesync
-	if err != nil {
-		panic(err)
-	}
-
+	// Open DB
 	db, err := bolt.Open("my.db", 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	// Initialize databases -- if already existed or do not exist return user name
-	err = InitDB(db)
+	// Ensure buckets exist
+	if err := InitDB(db); err != nil {
+		log.Fatal(err)
+	}
+
+	// Load or generate keys
+	kp, err := keys.GenerateOrLoad("")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Load username from DB
+	username, err := loadUsername(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	user := &User{
-		// Device id which is cryptographic public key
-		SelfID: PeerID(kp.Public),
+		Name:   username,
+		SelfID: PeerID(kp.Public), // cryptographic device ID
 	}
-
-	// user.Name = loadUsername(db)
-	// user.Peers = loadPeers(db)
-	// user.Folders = loadFolders(db, watcher)
 
 	// Watches for changes in File State
 	watcher, err := fsnotify.NewWatcher()

@@ -22,23 +22,42 @@ type FileMeta struct {
 }
 
 func InitDB(db *bolt.DB) error {
-	err := db.Update(func(tx *bolt.Tx) error {
-		// Init each bucket
-		if err := InitUserIdentity(tx); err != nil {
-			return err
-		}
-		if err := InitTrustedPeers(tx); err != nil {
-			return err
-		}
-		if err := InitSharedFolders(tx); err != nil {
-			return err
-		}
-		if _, err := tx.CreateBucketIfNotExists([]byte("user_file_state")); err != nil {
-			return err
+	return db.Update(func(tx *bolt.Tx) error {
+		buckets := []string{"user_identity", "trusted_peers", "shared_folders", "user_file_state"}
+		for _, name := range buckets {
+			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
+				return fmt.Errorf("failed creating bucket %s: %w", name, err)
+			}
 		}
 		return nil
 	})
-	return err
+}
+
+func loadUsername(db *bolt.DB) (string, error) {
+	var name string
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("user_identity"))
+		if b == nil {
+			return fmt.Errorf("user_identity bucket missing")
+		}
+		val := b.Get([]byte("name"))
+		if val != nil {
+			name = string(val)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if name == "" {
+		fmt.Print("Enter your username: ")
+		fmt.Scanln(&name)
+		db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket([]byte("user_identity")).Put([]byte("name"), []byte(name))
+		})
+	}
+	return name, nil
 }
 
 func InitUserIdentity(tx *bolt.Tx) error {
