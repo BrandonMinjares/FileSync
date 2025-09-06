@@ -23,9 +23,10 @@ type PeerID []byte // ed25519.PublicKey bytes
 type User struct {
 	Name   string
 	SelfID PeerID
+	Peers  map[string]*PeerInfo // key = deviceID (string of PeerID)
 }
 
-type Peer struct {
+type PeerInfo struct {
 	Name      string   `json:"name"`
 	Addresses []string `json:"addresses"`
 	LastSeen  int64    `json:"last_seen"` // Unix timestamp
