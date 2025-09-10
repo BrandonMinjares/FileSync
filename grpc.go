@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	pb "synthesize/protos"
 	"time"
 
@@ -203,18 +205,33 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 	return client, conn
 }
 
-/*
-
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
-	AddPeer(s.user, req.RequesterName, req.RequesterId)
+	if _, exists := s.user.Peers[req.RequesterId]; exists && s.user.Peers[req.RequesterId].State == "pending" {
+		fmt.Printf("Do you want to accept connection (y/n)?\n")
+
+		// CLI loop
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		// add to trusted users
+		if input == "y" {
+			s.PromotePeerToTrusted(req.RequesterId)
+
+			return &pb.ConnectionResponse{
+				Accepted: true,
+				Message:  "Connection accepted!",
+			}, nil
+		}
+	}
+
+	// AddPeer(s.user, req.RequesterName, req.RequesterId)
 	return &pb.ConnectionResponse{
-		Accepted: true,
-		Message:  "Connection accepted!",
+		Accepted: false,
+		Message:  "Connection denied!",
 	}, nil
 }
-*/
 
 func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 	if peer, exists := user.Peers[deviceID]; !exists {

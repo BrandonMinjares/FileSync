@@ -235,6 +235,20 @@ func main() {
 					user.Peers[key].Name,
 					user.Peers[key].Addresses)
 			}
+
+		case "2":
+			fmt.Print("Enter Device ID to connect with: ")
+			deviceID, _ := reader.ReadString('\n')
+			deviceID = strings.TrimSpace(deviceID)
+
+			if err := srv.PromotePeerToPending(deviceID); err != nil {
+				log.Printf("Error moving peer to pending: %v", err)
+			} else {
+				fmt.Println("Peer promoted to pending. Awaiting mutual approval.")
+				// check if pending in other user's side
+				// srv.RequestConnection()
+			}
+
 		default:
 			fmt.Println("Exiting program")
 			return
