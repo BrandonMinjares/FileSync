@@ -145,7 +145,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 
 			err = stream.Send(&pb.FolderChunk{
 				Foldername: folderPath,
-				SenderIp:   s.user.IP,
+				SenderIp:   string(s.user.SelfID),
 				FileChunk: &pb.FileChunk{
 					Filename:    entry.Name(),
 					Data:        buf[:n],
@@ -203,6 +203,8 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 	return client, conn
 }
 
+/*
+
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
@@ -212,20 +214,47 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 		Message:  "Connection accepted!",
 	}, nil
 }
+*/
 
-func AddPeer(user *User, peerName, peerIp string) error {
-	_, exists := user.Peers[peerIp]
-	if !exists {
-		println("Peer already added")
-		return nil
-	}
+func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
+	if peer, exists := user.Peers[deviceID]; !exists {
+		user.Peers[deviceID] = &PeerInfo{
+			DeviceID:  PeerID(deviceID),
+			Addresses: []string{deviceAddress},
+			State:     "seen",
+			LastSeen:  time.Now().Unix(),
+		}
+		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
 
-	user.Peers[peerIp] = &Peer{
-		IPAddress: peerIp,
-		Name:      peerName,
+		user.Peers[deviceID] = peer
+		if err := UpdatePeer(db, *peer); err != nil {
+			log.Printf("failed to persist peer %s: %v", deviceID, err)
+		}
+
+	} else if _, exists := user.Peers[deviceID]; exists && user.Peers[deviceID].State == "seen" {
+		pi := user.Peers[deviceID]
+		pi.Addresses = appendIfMissing(pi.Addresses, deviceAddress)
+		pi.LastSeen = time.Now().Unix()
 	}
-	println("Added Peer")
 	return nil
+}
+
+func (s *server) PromotePeerToPending(deviceID string) error {
+	peer, ok := s.user.Peers[deviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", deviceID)
+	}
+	peer.State = "pending"
+	return UpdatePeer(s.db, *peer)
+}
+
+func (s *server) PromotePeerToTrusted(deviceID string) error {
+	peer, ok := s.user.Peers[deviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", deviceID)
+	}
+	peer.State = "trusted"
+	return UpdatePeer(s.db, *peer)
 }
 
 func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {

@@ -75,6 +75,39 @@ func InitSharedFolders(tx *bolt.Tx) error {
 	return nil
 }
 
+func (s *server) AddPeerToBucket(peer PeerInfo) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("bucket %s does not exist", "peers")
+		}
+
+		peerSerialized, err := json.Marshal(peer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer info: %w", err)
+		}
+
+		// Use the DeviceID as the key
+		return b.Put([]byte(peer.DeviceID), peerSerialized)
+	})
+}
+
+func UpdatePeer(db *bolt.DB, peer PeerInfo) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("bucket peers does not exist")
+		}
+
+		peerSerialized, err := json.Marshal(peer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer info: %w", err)
+		}
+
+		return b.Put([]byte(peer.DeviceID), peerSerialized)
+	})
+}
+
 func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
 	err := watcher.Add(folder)
 	if err != nil {

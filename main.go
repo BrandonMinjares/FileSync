@@ -2,16 +2,17 @@ package main
 
 import (
 	"bufio"
-	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"synthesize/keys"
 	pb "synthesize/protos"
 	"time"
+
+	"encoding/base32"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
@@ -23,14 +24,121 @@ type PeerID []byte // ed25519.PublicKey bytes
 type User struct {
 	Name   string
 	SelfID PeerID
-	Peers  map[string]*PeerInfo // key = deviceID (string of PeerID)
+	Peers  map[string]*PeerInfo // key = deviceID
 }
 
 type PeerInfo struct {
+	DeviceID  PeerID   `json:"device_id"`
 	Name      string   `json:"name"`
 	Addresses []string `json:"addresses"`
-	LastSeen  int64    `json:"last_seen"` // Unix timestamp
+	State     string   `json:"state"` // "seen", "pending", "trusted"
+	LastSeen  int64    `json:"last_seen"`
 }
+
+const (
+	mcastAddr = "239.42.42.42:50000" // multicast group address + port
+)
+
+// --- LAN DISCOVERY ---
+/*
+func (id PeerID) convertToString() string {
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id)
+}
+*/
+
+func ParsePeerID(s string) (PeerID, error) {
+	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	return PeerID(data), nil
+}
+
+// announcePresence broadcasts this peer’s DeviceID and listening port
+func announcePresence(deviceID string, port int) {
+	addr, err := net.ResolveUDPAddr("udp", mcastAddr)
+	if err != nil {
+		log.Printf("ResolveUDPAddr error: %v", err)
+		return
+	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		log.Printf("DialUDP error: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	msg := map[string]string{
+		"device_id": deviceID,
+		"addr":      getLocalIP() + ":" + fmt.Sprint(port),
+	}
+
+	data, _ := json.Marshal(msg)
+	_, _ = conn.Write(data)
+}
+
+// listenForPresence listens for other peers’ broadcasts
+func listenForPresence(user *User, db *bolt.DB) error {
+	addr, err := net.ResolveUDPAddr("udp", mcastAddr)
+	if err != nil {
+		return err
+	}
+
+	conn, err := net.ListenMulticastUDP("udp", nil, addr)
+	if err != nil {
+		return err
+	}
+	conn.SetReadBuffer(1024)
+
+	for {
+		buf := make([]byte, 1024)
+		n, _, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			log.Printf("ReadFromUDP error: %v", err)
+			continue
+		}
+
+		var msg map[string]string
+		if err := json.Unmarshal(buf[:n], &msg); err != nil {
+			continue
+		}
+
+		deviceID := msg["device_id"]
+		addr := msg["addr"]
+		// Ignore self-announcements
+		if deviceID == string(user.SelfID) {
+			continue
+		}
+
+		if err := AddPeer(db, user, deviceID, addr); err != nil {
+			log.Printf("failed to persist peer %s: %v", deviceID, err)
+		}
+	}
+}
+
+// helper to avoid duplicates
+func appendIfMissing(slice []string, addr string) []string {
+	for _, s := range slice {
+		if s == addr {
+			return slice
+		}
+	}
+	return append(slice, addr)
+}
+
+// getLocalIP finds the first non-loopback IPv4
+func getLocalIP() string {
+	addrs, _ := net.InterfaceAddrs()
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			return ipnet.IP.String()
+		}
+	}
+	return "127.0.0.1"
+}
+
+// --- MAIN ---
 
 func main() {
 	// Open DB
@@ -60,6 +168,7 @@ func main() {
 	user := &User{
 		Name:   username,
 		SelfID: PeerID(kp.Public), // cryptographic device ID
+		Peers:  make(map[string]*PeerInfo),
 	}
 
 	// Watches for changes in File State
@@ -72,179 +181,63 @@ func main() {
 	s := grpc.NewServer()
 	srv := NewServer(db, user, watcher)
 	pb.RegisterFileSyncServiceServer(s, srv)
+	id := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
 
+	// Start gRPC server
 	go func() {
 		lis, err := net.Listen("tcp", ":50051")
 		if err != nil {
 			log.Fatalf("Failed to listen: %v", err)
 		}
-
 		log.Println("Starting gRPC server on port 50051...")
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("Failed to serve: %v", err)
 		}
 	}()
 
-	reader := bufio.NewReader(os.Stdin)
-	// Wait for the server to spin up
-	time.Sleep(time.Second * 2)
-
-	// Listen for events
+	// Start announcer
 	go func() {
 		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				fmt.Println("EVENT:", event.Name)
-				if event.Op&fsnotify.Create == fsnotify.Create {
-					fmt.Println("File created:", event.Name)
-				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					info, err := os.Stat(event.Name)
-					if err != nil {
-						fmt.Println("Error:", err)
-						return
-					}
-					fmt.Println("File Name:", info.Name())
-
-					srv.UpdateFileStateInBucket(event.Name)
-					srv.NotifySharedFolderUsers(event.Name)
-				}
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					fmt.Println("File deleted:", event.Name)
-				}
-				if event.Op&fsnotify.Rename == fsnotify.Rename {
-					fmt.Println("File renamed:", event.Name)
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				fmt.Println("ERROR:", err)
-			}
+			announcePresence(id, 50051)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 
+	// Start listener
+	go func() {
+		if err := listenForPresence(user, db); err != nil {
+			log.Printf("Presence listener error: %v", err)
+		}
+	}()
+
+	// CLI loop
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Print(`
-				Would you like to:
-				1. Add a folder to a bucket
-				2. Connect to a new user
-				3. Share folder with user
-				4. List connected users
-				5. List all folders in bucket
-				Type "exit" to quit
-				> `)
+		Would you like to:
+		1. Add a folder to a bucket
+		2. Connect to a new user
+		3. Share folder with user
+		4. List connected users
+		5. List all folders in bucket
+		Type "exit" to quit
+		> `)
 
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 
 		switch input {
 		case "1":
-			fmt.Print("What folder would you like to add? ")
-			folder, _ := reader.ReadString('\n')
-			folder = strings.TrimSpace(folder)
-
-			if err := srv.AddFolderToBucket(folder, "shared_folders", watcher); err != nil {
-				log.Println("Error adding folder to bucket:", err)
-			} else {
-				fmt.Println("Folder added to bucket.")
-			}
-			fmt.Printf("Watching folder: %s", folder)
-			err = watcher.Add(folder)
-			if err != nil {
-				log.Fatal("Failed to add watcher:", err)
-			}
-			fmt.Printf("Successfully watching %s", folder)
-
-		case "2":
-			fmt.Print("What is the Device ID of the peer you want to connect with? ")
-			PrivateIP, _ := reader.ReadString('\n')
-			PrivateIP = strings.TrimSpace(PrivateIP)
-
-			_, exists := user.Peers[PrivateIP]
-			if exists {
-				fmt.Println("Peer is already connected")
-				continue
-			}
-
-			fmt.Print("What is the name of the user? ")
-			name, _ := reader.ReadString('\n')
-			name = strings.TrimSpace(name)
-
-			client, conn := connectToPeer(PrivateIP, name, "50051")
-			defer conn.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancel()
-
-			resp, err := client.SendFile(ctx, &pb.FileChunk{
-				Filename:    "test.txt",
-				ChunkNumber: 1,
-				Data:        []byte("Hello!"),
-				IsLast:      true,
-			})
-
-			if err != nil {
-				fmt.Println("Connection test failed:", err)
-			}
-
-			log.Println("Peer responded:", resp)
-
-			// At this point, you can safely store the peer
-			user.Peers[PrivateIP] = &Peer{
-				Name:      name,
-				IPAddress: PrivateIP,
-			}
-			fmt.Println("Peer successfully connected and added.")
-		case "3":
-			fmt.Println("Connected peers:")
-			i := 1
-			peerIPs := []string{}
-			for ip, peer := range user.Peers {
-				fmt.Printf("%d. %s (%s)\n", i, peer.Name, ip)
-				peerIPs = append(peerIPs, ip)
-				i++
-			}
-
-			fmt.Print("Enter the number of the peer to share the folder with: ")
-			choiceStr, _ := reader.ReadString('\n')
-			choiceStr = strings.TrimSpace(choiceStr)
-			choice, _ := strconv.Atoi(choiceStr)
-			if choice < 1 || choice > len(peerIPs) {
-				fmt.Println("Invalid choice.")
-				continue
-			}
-			peerIP := peerIPs[choice-1]
-			peer := user.Peers[peerIP]
-
-			client, conn := connectToPeer(peer.IPAddress, peer.Name, "50051")
-			if client == nil {
-				log.Fatal("Failed to connect to peer")
-			}
-			defer conn.Close()
-
-			fmt.Print("What folder would you like to share? ")
-			folder, _ := reader.ReadString('\n')
-			folder = strings.TrimSpace(folder)
-
-			// Now share a folder (e.g., "tmp")
-			err := srv.ShareFolder(folder, client)
-			if err != nil {
-				log.Fatalf("Error sharing folder: %v", err)
-			}
-			srv.AddUserToSharedFolder(folder, peer.IPAddress)
-		case "4":
 			for key := range user.Peers {
-				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].IPAddress, user.Peers[key].Name)
+				fmt.Printf("Peer: %s, Name: %s, Addrs: %v\n",
+					user.Peers[key].DeviceID,
+					user.Peers[key].Name,
+					user.Peers[key].Addresses)
 			}
-		case "5":
-			srv.GetFoldersInBucket("shared_folders")
 		default:
 			fmt.Println("Exiting program")
 			return
 		}
-
 	}
 }
