@@ -106,8 +106,8 @@ func listenForPresence(user *User, db *bolt.DB) error {
 
 		deviceID := msg["device_id"]
 		addr := msg["addr"]
-		// Ignore self-announcements
 
+		// Ignore self-announcements
 		selfID := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
 		if deviceID == selfID {
 			continue
@@ -184,6 +184,7 @@ func main() {
 	srv := NewServer(db, user, watcher)
 	pb.RegisterFileSyncServiceServer(s, srv)
 	id := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
+	fmt.Printf("My Device ID: %s", id)
 
 	// Start gRPC server
 	go func() {
