@@ -174,7 +174,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 	return nil
 }
 
-func connectToPeer(ip, name string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+func connectToPeer(ip, name, id string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
 	conn, err := grpc.NewClient(ip, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
@@ -186,7 +186,7 @@ func connectToPeer(ip, name string) (pb.FileSyncServiceClient, *grpc.ClientConn)
 	defer cancel()
 
 	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
-		RequesterId:   ip,
+		RequesterId:   id,
 		RequesterName: name,
 	})
 
@@ -279,9 +279,9 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 	return UpdatePeer(s.db, *peer)
 }
 
-func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
+func FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
 	// Connect to the peer
-	client, conn := connectToPeer(IP, "test")
+	client, conn := connectToPeer(IP, "test", id)
 	defer conn.Close()
 
 	// Give user 10 seconds to respond
@@ -326,7 +326,7 @@ func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.
 
 func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error) {
 	// Connect to the peer
-	client, conn := connectToPeer(IP, s.user.Name)
+	client, conn := connectToPeer(IP, string(s.user.SelfID), s.user.Name)
 	defer conn.Close()
 
 	// Give user 10 seconds to respond

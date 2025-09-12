@@ -338,7 +338,7 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 			go func(ip string) {
 				defer wg.Done()
 
-				res, err := FileUpdateRequest(filePath, ip, timestamp)
+				res, err := FileUpdateRequest(filePath, string(s.user.SelfID), ip, timestamp)
 				if err != nil {
 					fmt.Printf("Error contacting %s: %v\n", ip, err)
 					// send future update
