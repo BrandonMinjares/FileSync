@@ -261,7 +261,7 @@ func main() {
 			// Use the first known address
 			ip := peer.Addresses[0]
 
-			client, conn := connectToPeer(ip, user.Name, "50051")
+			client, conn := connectToPeer(ip, user.Name)
 			if client == nil {
 				fmt.Println("Failed to establish connection with peer.")
 				continue

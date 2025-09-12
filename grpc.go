@@ -174,8 +174,8 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 	return nil
 }
 
-func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	conn, err := grpc.NewClient(ip+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func connectToPeer(ip, name string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+	conn, err := grpc.NewClient(ip, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
 	}
@@ -281,7 +281,7 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 
 func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
 	// Connect to the peer
-	client, conn := connectToPeer(IP, "john", "50051")
+	client, conn := connectToPeer(IP, "test")
 	defer conn.Close()
 
 	// Give user 10 seconds to respond
@@ -326,7 +326,7 @@ func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.
 
 func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error) {
 	// Connect to the peer
-	client, conn := connectToPeer(IP, "john", "50051")
+	client, conn := connectToPeer(IP, s.user.Name)
 	defer conn.Close()
 
 	// Give user 10 seconds to respond
