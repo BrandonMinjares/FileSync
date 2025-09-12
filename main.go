@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/base32"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,8 +12,6 @@ import (
 	"synthesize/keys"
 	pb "synthesize/protos"
 	"time"
-
-	"encoding/base32"
 
 	"github.com/fsnotify/fsnotify"
 	bolt "go.etcd.io/bbolt"
@@ -24,7 +23,7 @@ type PeerID []byte // ed25519.PublicKey bytes
 type User struct {
 	Name   string
 	SelfID PeerID
-	Peers  map[string]*PeerInfo // key = deviceID
+	Peers  map[string]*PeerInfo // key = deviceID (base32 string)
 }
 
 type PeerInfo struct {
@@ -39,19 +38,26 @@ const (
 	mcastAddr = "239.42.42.42:50000" // multicast group address + port
 )
 
-// --- LAN DISCOVERY ---
-/*
-func (id PeerID) convertToString() string {
+func EncodePeerID(id PeerID) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id)
 }
-*/
 
-func ParsePeerID(s string) (PeerID, error) {
+func DecodePeerID(s string) (PeerID, error) {
 	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
 	if err != nil {
 		return nil, err
 	}
 	return PeerID(data), nil
+}
+
+func getLocalIP() string {
+	addrs, _ := net.InterfaceAddrs()
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			return ipnet.IP.String()
+		}
+	}
+	return "127.0.0.1"
 }
 
 // announcePresence broadcasts this peer’s DeviceID and listening port
@@ -92,7 +98,7 @@ func listenForPresence(user *User, db *bolt.DB) error {
 	conn.SetReadBuffer(1024)
 
 	for {
-		buf := make([]byte, 1024)
+		buf := make([]byte, 4096)
 		n, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			log.Printf("ReadFromUDP error: %v", err)
@@ -108,7 +114,7 @@ func listenForPresence(user *User, db *bolt.DB) error {
 		addr := msg["addr"]
 
 		// Ignore self-announcements
-		selfID := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
+		selfID := EncodePeerID(user.SelfID)
 		if deviceID == selfID {
 			continue
 		}
@@ -127,17 +133,6 @@ func appendIfMissing(slice []string, addr string) []string {
 		}
 	}
 	return append(slice, addr)
-}
-
-// getLocalIP finds the first non-loopback IPv4
-func getLocalIP() string {
-	addrs, _ := net.InterfaceAddrs()
-	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-			return ipnet.IP.String()
-		}
-	}
-	return "127.0.0.1"
 }
 
 // --- MAIN ---
@@ -183,8 +178,6 @@ func main() {
 	s := grpc.NewServer()
 	srv := NewServer(db, user, watcher)
 	pb.RegisterFileSyncServiceServer(s, srv)
-	id := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
-	fmt.Printf("My Device ID: %s", id)
 
 	// Start gRPC server
 	go func() {
@@ -197,6 +190,9 @@ func main() {
 			log.Fatalf("Failed to serve: %v", err)
 		}
 	}()
+
+	id := EncodePeerID(user.SelfID) // base32 string
+	fmt.Printf("My Device ID: %s\n", id)
 
 	// Start announcer
 	go func() {
@@ -219,11 +215,8 @@ func main() {
 	for {
 		fmt.Print(`
 		Would you like to:
-		1. Add a folder to a bucket
-		2. Connect to a new user
-		3. Share folder with user
-		4. List connected users
-		5. List all folders in bucket
+		1. List peers
+		2. Connect to a peer (promote to pending & send RequestConnection)
 		Type "exit" to quit
 		> `)
 
@@ -233,10 +226,11 @@ func main() {
 		switch input {
 		case "1":
 			for key := range user.Peers {
-				fmt.Printf("Peer: %s, Name: %s, Addrs: %v\n",
-					user.Peers[key].DeviceID,
+				fmt.Printf("Peer ID: %s, Name: %s, Addrs: %v, State: %s\n",
+					key,
 					user.Peers[key].Name,
-					user.Peers[key].Addresses)
+					user.Peers[key].Addresses,
+					user.Peers[key].State)
 			}
 
 		case "2":
@@ -258,16 +252,14 @@ func main() {
 				continue
 			}
 
-			// Use the first known address
+			// Use the first known address (host:port)
 			ip := peer.Addresses[0]
-
-			client, conn := connectToPeer(ip, user.Name, string(user.SelfID))
+			client, conn := connectToPeer(ip, user.Name, id)
 			if client == nil {
 				fmt.Println("Failed to establish connection with peer.")
 				continue
 			}
-			defer conn.Close()
-
+			_ = conn.Close() // we don't keep it open here; RequestConnection already sent in connectToPeer
 			fmt.Println("Connection request sent. Waiting for peer response...")
 		default:
 			fmt.Println("Exiting program")

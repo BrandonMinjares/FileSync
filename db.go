@@ -346,7 +346,7 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 				}
 				if res.Accepted {
 					print("accept file")
-					s.SendFileUpdate(filePath, ip)
+					// s.SendFileUpdate(filePath, ip)
 				}
 			}(IP)
 		}
