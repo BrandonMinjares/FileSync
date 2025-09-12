@@ -1,6 +1,6 @@
-# Distributed File Synchronizer
+# File Synchronizer
 
-A peer-to-peer distributed file synchronization tool built in Go. Designed to detect file changes in real time, propagate updates across nodes using gRPC, and maintain consistent state using lightweight metadata storage.
+A peer-to-peer file synchronization tool built in Go. Designed to detect file changes in real time, propagate updates across nodes using gRPC, and maintain consistent state using lightweight metadata storage.
 
 ## 🚀 Features
 
