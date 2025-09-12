@@ -22,7 +22,7 @@ type FileMeta struct {
 
 func InitDB(db *bolt.DB) error {
 	return db.Update(func(tx *bolt.Tx) error {
-		buckets := []string{"user_identity", "trusted_peers", "shared_folders", "user_file_state"}
+		buckets := []string{"user_identity", "peers", "shared_folders", "user_file_state"}
 		for _, name := range buckets {
 			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
 				return fmt.Errorf("failed creating bucket %s: %w", name, err)
@@ -59,10 +59,10 @@ func loadUsername(db *bolt.DB) (string, error) {
 	return name, nil
 }
 
-func InitTrustedPeers(tx *bolt.Tx) error {
-	_, err := tx.CreateBucketIfNotExists([]byte("trusted_peers"))
+func InitPeers(tx *bolt.Tx) error {
+	_, err := tx.CreateBucketIfNotExists([]byte("peers"))
 	if err != nil {
-		return fmt.Errorf("failed to create trusted_peers bucket: %w", err)
+		return fmt.Errorf("failed to create peers bucket: %w", err)
 	}
 	return nil
 }

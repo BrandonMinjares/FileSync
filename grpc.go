@@ -254,6 +254,7 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 		peer.LastSeen = time.Now().Unix()
 
 		if err := UpdatePeer(db, *peer); err != nil {
+			print("Error in seen peer")
 			return fmt.Errorf("failed to update peer %s: %w", deviceID, err)
 		}
 	}
