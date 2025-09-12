@@ -107,7 +107,9 @@ func listenForPresence(user *User, db *bolt.DB) error {
 		deviceID := msg["device_id"]
 		addr := msg["addr"]
 		// Ignore self-announcements
-		if deviceID == string(user.SelfID) {
+
+		selfID := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(user.SelfID)
+		if deviceID == selfID {
 			continue
 		}
 
@@ -241,14 +243,31 @@ func main() {
 			deviceID, _ := reader.ReadString('\n')
 			deviceID = strings.TrimSpace(deviceID)
 
+			// Promote locally to pending
 			if err := srv.PromotePeerToPending(deviceID); err != nil {
 				log.Printf("Error moving peer to pending: %v", err)
-			} else {
-				fmt.Println("Peer promoted to pending. Awaiting mutual approval.")
-				// check if pending in other user's side
-				// srv.RequestConnection()
+				continue
+			}
+			fmt.Println("Peer promoted to pending. Sending connection request...")
+
+			// Look up peer info (need IP address from discovery)
+			peer, ok := user.Peers[deviceID]
+			if !ok || len(peer.Addresses) == 0 {
+				log.Printf("No addresses for peer %s", deviceID)
+				continue
 			}
 
+			// Use the first known address
+			ip := peer.Addresses[0]
+
+			client, conn := connectToPeer(ip, user.Name, "50051")
+			if client == nil {
+				fmt.Println("Failed to establish connection with peer.")
+				continue
+			}
+			defer conn.Close()
+
+			fmt.Println("Connection request sent. Waiting for peer response...")
 		default:
 			fmt.Println("Exiting program")
 			return

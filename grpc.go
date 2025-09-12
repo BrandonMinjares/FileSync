@@ -235,23 +235,27 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 
 func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 	if peer, exists := user.Peers[deviceID]; !exists {
-		user.Peers[deviceID] = &PeerInfo{
+		newPeer := &PeerInfo{
 			DeviceID:  PeerID(deviceID),
 			Addresses: []string{deviceAddress},
 			State:     "seen",
 			LastSeen:  time.Now().Unix(),
 		}
+		user.Peers[deviceID] = newPeer
 		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
 
-		user.Peers[deviceID] = peer
-		if err := UpdatePeer(db, *peer); err != nil {
-			log.Printf("failed to persist peer %s: %v", deviceID, err)
+		if err := UpdatePeer(db, *newPeer); err != nil {
+			return fmt.Errorf("failed to persist peer %s: %w", deviceID, err)
 		}
 
-	} else if _, exists := user.Peers[deviceID]; exists && user.Peers[deviceID].State == "seen" {
-		pi := user.Peers[deviceID]
-		pi.Addresses = appendIfMissing(pi.Addresses, deviceAddress)
-		pi.LastSeen = time.Now().Unix()
+	} else if peer.State == "seen" {
+		// Update existing "seen" peer with new addr/last seen
+		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
+		peer.LastSeen = time.Now().Unix()
+
+		if err := UpdatePeer(db, *peer); err != nil {
+			return fmt.Errorf("failed to update peer %s: %w", deviceID, err)
+		}
 	}
 	return nil
 }
