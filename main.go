@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"synthesize/keys"
 	pb "synthesize/protos"
@@ -20,10 +21,17 @@ import (
 
 type PeerID []byte // ed25519.PublicKey bytes
 
+type Folder struct {
+	FolderID   string
+	Path       string
+	SharedWith []string
+}
+
 type User struct {
-	Name   string
-	SelfID PeerID
-	Peers  map[string]*PeerInfo // key = deviceID (base32 string)
+	Name    string
+	SelfID  PeerID
+	Peers   map[string]*PeerInfo // key = deviceID (base32 string)
+	Folders map[string]*Folder   `json:"folders"` // Map of peer ID → Peer object
 }
 
 type PeerInfo struct {
@@ -177,6 +185,37 @@ func main() {
 
 	s := grpc.NewServer()
 	srv := NewServer(db, user, watcher)
+
+	// Start watching for file system events and handle them
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				fmt.Printf("File event: %s\n", event)
+
+				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+					fmt.Printf("Modified or created file: %s\n", event.Name)
+					// Update local DB state
+					if err := srv.UpdateFileStateInBucket(event.Name); err != nil {
+						log.Printf("Failed to update file state: %v", err)
+					}
+					// Notify peers about the change
+					if err := srv.NotifySharedFolderUsers(event.Name); err != nil {
+						log.Printf("Failed to notify peers: %v", err)
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Printf("Watcher error: %v", err)
+			}
+		}
+	}()
+
 	pb.RegisterFileSyncServiceServer(s, srv)
 
 	// Start gRPC server
@@ -210,60 +249,140 @@ func main() {
 	}()
 
 	// CLI loop
+
 	reader := bufio.NewReader(os.Stdin)
+	// Wait for the server to spin up
+	time.Sleep(time.Second * 2)
+
+	// Listen for events
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				fmt.Println("EVENT:", event.Name)
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					fmt.Println("File created:", event.Name)
+				}
+				if event.Op&fsnotify.Write == fsnotify.Write {
+					info, err := os.Stat(event.Name)
+					if err != nil {
+						fmt.Println("Error:", err)
+						return
+					}
+					fmt.Println("File Name:", info.Name())
+
+					srv.UpdateFileStateInBucket(event.Name)
+					srv.NotifySharedFolderUsers(event.Name)
+				}
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					fmt.Println("File deleted:", event.Name)
+				}
+				if event.Op&fsnotify.Rename == fsnotify.Rename {
+					fmt.Println("File renamed:", event.Name)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				fmt.Println("ERROR:", err)
+			}
+		}
+	}()
 
 	for {
 		fmt.Print(`
-		Would you like to:
-		1. List peers
-		2. Connect to a peer (promote to pending & send RequestConnection)
-		Type "exit" to quit
-		> `)
+				Would you like to:
+				1. Add a folder to a bucket
+				2. Connect to a new user
+				3. Share folder with user
+				4. List connected users
+				5. List all folders in bucket
+				Type "exit" to quit
+				> `)
 
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 
 		switch input {
 		case "1":
-			for key := range user.Peers {
-				fmt.Printf("Peer ID: %s, Name: %s, Addrs: %v, State: %s\n",
-					key,
-					user.Peers[key].Name,
-					user.Peers[key].Addresses,
-					user.Peers[key].State)
+			fmt.Print("What folder would you like to add? ")
+			folder, _ := reader.ReadString('\n')
+			folder = strings.TrimSpace(folder)
+
+			if err := srv.AddFolderToBucket(folder, "shared_folders", watcher); err != nil {
+				log.Println("Error adding folder to bucket:", err)
+			} else {
+				fmt.Println("Folder added to bucket.")
 			}
+			fmt.Printf("Watching folder: %s", folder)
+			err = watcher.Add(folder)
+			if err != nil {
+				log.Fatal("Failed to add watcher:", err)
+			}
+			fmt.Printf("Successfully watching %s", folder)
 
 		case "2":
 			fmt.Print("Enter Device ID to connect with: ")
 			deviceID, _ := reader.ReadString('\n')
 			deviceID = strings.TrimSpace(deviceID)
 
-			// Promote locally to pending
 			if err := srv.PromotePeerToPending(deviceID); err != nil {
 				log.Printf("Error moving peer to pending: %v", err)
+			} else {
+				fmt.Println("Peer promoted to pending. Awaiting mutual approval.")
+				// check if pending in other user's side
+				// srv.RequestConnection()
+			}
+		case "3":
+			fmt.Println("Connected peers:")
+			i := 1
+			peerIPs := []string{}
+			for ip, peer := range user.Peers {
+				fmt.Printf("%d. %s (%s)\n", i, peer.Name, ip)
+				peerIPs = append(peerIPs, ip)
+				i++
+			}
+
+			fmt.Print("Enter the number of the peer to share the folder with: ")
+			choiceStr, _ := reader.ReadString('\n')
+			choiceStr = strings.TrimSpace(choiceStr)
+			choice, _ := strconv.Atoi(choiceStr)
+			if choice < 1 || choice > len(peerIPs) {
+				fmt.Println("Invalid choice.")
 				continue
 			}
-			fmt.Println("Peer promoted to pending. Sending connection request...")
+			peerIP := peerIPs[choice-1]
+			peer := user.Peers[peerIP]
 
-			// Look up peer info (need IP address from discovery)
-			peer, ok := user.Peers[deviceID]
-			if !ok || len(peer.Addresses) == 0 {
-				log.Printf("No addresses for peer %s", deviceID)
-				continue
-			}
-
-			// Use the first known address (host:port)
-			ip := peer.Addresses[0]
-			client, conn := connectToPeer(ip, user.Name, id)
+			client, conn := connectToPeer(string(peer.DeviceID), peer.Name, "50051")
 			if client == nil {
-				fmt.Println("Failed to establish connection with peer.")
-				continue
+				log.Fatal("Failed to connect to peer")
 			}
-			_ = conn.Close() // we don't keep it open here; RequestConnection already sent in connectToPeer
-			fmt.Println("Connection request sent. Waiting for peer response...")
+			defer conn.Close()
+
+			fmt.Print("What folder would you like to share? ")
+			folder, _ := reader.ReadString('\n')
+			folder = strings.TrimSpace(folder)
+
+			// Now share a folder (e.g., "tmp")
+			err := srv.ShareFolder(folder, client)
+			if err != nil {
+				log.Fatalf("Error sharing folder: %v", err)
+			}
+			srv.AddUserToSharedFolder(folder, string(peer.DeviceID))
+		case "4":
+			for key := range user.Peers {
+				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].DeviceID, user.Peers[key].Name)
+			}
+		case "5":
+			srv.GetFoldersInBucket("shared_folders")
 		default:
 			fmt.Println("Exiting program")
 			return
 		}
+
 	}
 }

@@ -36,7 +36,6 @@ func NewServer(db *bolt.DB, user *User, watcher *fsnotify.Watcher) *server {
 }
 
 func (s *server) SendFile(ctx context.Context, chunk *pb.FileChunk) (*pb.Ack, error) {
-	// ... (unchanged)
 	f, err := os.OpenFile(chunk.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return &pb.Ack{Received: false, Message: "File open error"}, err
@@ -86,10 +85,8 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			continue
 		}
 
-		// Join the directory with the filename
 		fullPath := filepath.Join(chunk.GetFoldername(), fileChunk.Filename)
 
-		// Write to the file
 		f, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file: %w", err)
@@ -146,7 +143,6 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 			}
 			isLast := err == io.EOF
 
-			// use encoded device id if you want to send it as a string
 			err = stream.Send(&pb.FolderChunk{
 				Foldername: folderPath,
 				SenderIp:   EncodePeerID(s.user.SelfID),
@@ -186,7 +182,6 @@ func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.Cli
 
 	client := pb.NewFileSyncServiceClient(conn)
 
-	// send ConnectionRequest immediately so caller can check response
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -201,7 +196,6 @@ func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.Cli
 	}
 	if !res.Accepted {
 		log.Println("Connection rejected by peer:", res.Message)
-		// keep conn closed
 		conn.Close()
 		return nil, nil
 	}
@@ -213,7 +207,6 @@ func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.Cli
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
-	// If we already promoted that peer to pending locally, prompt user to accept.
 	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "pending" {
 		fmt.Printf("Do you want to accept connection from %s (y/n)?\n", req.RequesterName)
 
@@ -221,7 +214,6 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input == "y" {
-			// promote to trusted
 			if err := s.PromotePeerToTrusted(req.RequesterId); err != nil {
 				log.Printf("failed to promote to trusted: %v", err)
 				return &pb.ConnectionResponse{Accepted: false, Message: "Internal error"}, nil
@@ -240,11 +232,9 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 }
 
 func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
-	// deviceID is expected to be base32 string key
 	if peer, exists := user.Peers[deviceID]; !exists {
 		decoded, err := DecodePeerID(deviceID)
 		if err != nil {
-			// if decoding fails, still store the string as raw bytes but log
 			log.Printf("warning: failed to decode deviceID %s: %v", deviceID, err)
 			decoded = PeerID(deviceID)
 		}
@@ -262,7 +252,6 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 		}
 
 	} else if peer.State == "seen" {
-		// Update existing "seen" peer with new addr/last seen
 		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
 		peer.LastSeen = time.Now().Unix()
 
@@ -292,7 +281,6 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 }
 
 func FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
-	// Connect to the peer (IP should be host:port)
 	client, conn := connectToPeer(IP, "test", id)
 	if conn != nil {
 		defer conn.Close()

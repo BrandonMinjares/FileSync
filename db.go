@@ -200,7 +200,6 @@ func (s *server) UpdateFileStateInBucket(path string) error {
 			return fmt.Errorf("failed to unmarshal file meta: %w", err)
 		}
 
-		// Get updated time and size of file
 		info, _ := os.Stat(path)
 		meta.ModTime = info.ModTime()
 		meta.Size = info.Size()
@@ -293,20 +292,6 @@ func (s *server) GetFoldersInBucket(bucket string) error {
 	})
 }
 
-/*
-Get all IP's in bucket
-Send ping to the IP containing filePath, metadata
-Receive ping
-Check receiving users bucket with that filepath
-Compare metadata
-If Senders metadata is after Receivers metadata user can agree to change file contents
-
-If so, send ping back confirming Receiver agreed
-Then send file contents over to receiver
-Receiver updates the file in their bucket along with metadata
-
-SendNotification(modTime, filePath, ipAddress)
-*/
 func (s *server) NotifySharedFolderUsers(filePath string) error {
 	parts := strings.Split(filePath, "/")
 	folderName := parts[0]
