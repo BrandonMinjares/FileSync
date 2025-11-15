@@ -20,15 +20,92 @@ type FileMeta struct {
 	Size    int64     `json:"size"`
 }
 
-func (s *server) CreateBucket(bucketName string) error {
-	err := s.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if err != nil {
-			return fmt.Errorf("failed to create bucket '%s': %w", "files", err)
+func InitDB(db *bolt.DB) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		buckets := []string{"user_identity", "peers", "shared_folders", "user_file_state"}
+		for _, name := range buckets {
+			if _, err := tx.CreateBucketIfNotExists([]byte(name)); err != nil {
+				return fmt.Errorf("failed creating bucket %s: %w", name, err)
+			}
 		}
 		return nil
 	})
-	return err
+}
+
+func loadUsername(db *bolt.DB) (string, error) {
+	var name string
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("user_identity"))
+		if b == nil {
+			return fmt.Errorf("user_identity bucket missing")
+		}
+		val := b.Get([]byte("name"))
+		if val != nil {
+			name = string(val)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if name == "" {
+		fmt.Print("Enter your username: ")
+		fmt.Scanln(&name)
+		db.Update(func(tx *bolt.Tx) error {
+			return tx.Bucket([]byte("user_identity")).Put([]byte("name"), []byte(name))
+		})
+	}
+	return name, nil
+}
+
+func InitPeers(tx *bolt.Tx) error {
+	_, err := tx.CreateBucketIfNotExists([]byte("peers"))
+	if err != nil {
+		return fmt.Errorf("failed to create peers bucket: %w", err)
+	}
+	return nil
+}
+
+func InitSharedFolders(tx *bolt.Tx) error {
+	_, err := tx.CreateBucketIfNotExists([]byte("shared_folders"))
+	if err != nil {
+		return fmt.Errorf("failed to create shared_folders bucket: %w", err)
+	}
+	return nil
+}
+
+func (s *server) AddPeerToBucket(peer PeerInfo) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("bucket %s does not exist", "peers")
+		}
+
+		peerSerialized, err := json.Marshal(peer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer info: %w", err)
+		}
+
+		// Use the DeviceID as the key
+		return b.Put([]byte(peer.DeviceID), peerSerialized)
+	})
+}
+
+func UpdatePeer(db *bolt.DB, peer PeerInfo) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("bucket peers does not exist")
+		}
+
+		peerSerialized, err := json.Marshal(peer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer info: %w", err)
+		}
+
+		return b.Put([]byte(peer.DeviceID), peerSerialized)
+	})
 }
 
 func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
@@ -123,7 +200,6 @@ func (s *server) UpdateFileStateInBucket(path string) error {
 			return fmt.Errorf("failed to unmarshal file meta: %w", err)
 		}
 
-		// Get updated time and size of file
 		info, _ := os.Stat(path)
 		meta.ModTime = info.ModTime()
 		meta.Size = info.Size()
@@ -216,20 +292,6 @@ func (s *server) GetFoldersInBucket(bucket string) error {
 	})
 }
 
-/*
-Get all IP's in bucket
-Send ping to the IP containing filePath, metadata
-Receive ping
-Check receiving users bucket with that filepath
-Compare metadata
-If Senders metadata is after Receivers metadata user can agree to change file contents
-
-If so, send ping back confirming Receiver agreed
-Then send file contents over to receiver
-Receiver updates the file in their bucket along with metadata
-
-SendNotification(modTime, filePath, ipAddress)
-*/
 func (s *server) NotifySharedFolderUsers(filePath string) error {
 	parts := strings.Split(filePath, "/")
 	folderName := parts[0]
@@ -261,7 +323,7 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 			go func(ip string) {
 				defer wg.Done()
 
-				res, err := FileUpdateRequest(filePath, ip, timestamp)
+				res, err := FileUpdateRequest(filePath, string(s.user.SelfID), ip, timestamp)
 				if err != nil {
 					fmt.Printf("Error contacting %s: %v\n", ip, err)
 					// send future update
@@ -269,7 +331,7 @@ func (s *server) NotifySharedFolderUsers(filePath string) error {
 				}
 				if res.Accepted {
 					print("accept file")
-					s.SendFileUpdate(filePath, ip)
+					// s.SendFileUpdate(filePath, ip)
 				}
 			}(IP)
 		}

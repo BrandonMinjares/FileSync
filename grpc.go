@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	pb "synthesize/protos"
 	"time"
 
@@ -83,10 +85,8 @@ func (s *server) ReceiveFolder(stream pb.FileSyncService_ReceiveFolderServer) er
 			continue
 		}
 
-		// Join the directory with the filename
 		fullPath := filepath.Join(chunk.GetFoldername(), fileChunk.Filename)
 
-		// Write to the file
 		f, err := os.OpenFile(fullPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return fmt.Errorf("failed to open file: %w", err)
@@ -145,7 +145,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 
 			err = stream.Send(&pb.FolderChunk{
 				Foldername: folderPath,
-				SenderIp:   s.user.IP,
+				SenderIp:   EncodePeerID(s.user.SelfID),
 				FileChunk: &pb.FileChunk{
 					Filename:    entry.Name(),
 					Data:        buf[:n],
@@ -172,10 +172,12 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 	return nil
 }
 
-func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	conn, err := grpc.NewClient(ip+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// connectToPeer expects target to be "host:port"
+func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Could not connect: %v", err)
+		log.Printf("Could not connect to %s: %v", target, err)
+		return nil, nil
 	}
 
 	client := pb.NewFileSyncServiceClient(conn)
@@ -184,10 +186,9 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 	defer cancel()
 
 	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
-		RequesterId:   ip,
+		RequesterId:   id,
 		RequesterName: name,
 	})
-
 	if err != nil {
 		log.Printf("Connection request failed: %v", err)
 		conn.Close()
@@ -206,120 +207,101 @@ func connectToPeer(ip, name, port string) (pb.FileSyncServiceClient, *grpc.Clien
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
-	AddPeer(s.user, req.RequesterName, req.RequesterId)
+	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "pending" {
+		fmt.Printf("Do you want to accept connection from %s (y/n)?\n", req.RequesterName)
+
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "y" {
+			if err := s.PromotePeerToTrusted(req.RequesterId); err != nil {
+				log.Printf("failed to promote to trusted: %v", err)
+				return &pb.ConnectionResponse{Accepted: false, Message: "Internal error"}, nil
+			}
+			return &pb.ConnectionResponse{
+				Accepted: true,
+				Message:  "Connection accepted!",
+			}, nil
+		}
+	}
+
 	return &pb.ConnectionResponse{
-		Accepted: true,
-		Message:  "Connection accepted!",
+		Accepted: false,
+		Message:  "Connection denied!",
 	}, nil
 }
 
-func AddPeer(user *User, peerName, peerIp string) error {
-	_, exists := user.Peers[peerIp]
-	if !exists {
-		println("Peer already added")
-		return nil
-	}
+func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
+	if peer, exists := user.Peers[deviceID]; !exists {
+		decoded, err := DecodePeerID(deviceID)
+		if err != nil {
+			log.Printf("warning: failed to decode deviceID %s: %v", deviceID, err)
+			decoded = PeerID(deviceID)
+		}
+		newPeer := &PeerInfo{
+			DeviceID:  decoded,
+			Addresses: []string{deviceAddress},
+			State:     "seen",
+			LastSeen:  time.Now().Unix(),
+		}
+		user.Peers[deviceID] = newPeer
+		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
 
-	user.Peers[peerIp] = &Peer{
-		IPAddress: peerIp,
-		Name:      peerName,
+		if err := UpdatePeer(db, *newPeer); err != nil {
+			return fmt.Errorf("failed to persist peer %s: %w", deviceID, err)
+		}
+
+	} else if peer.State == "seen" {
+		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
+		peer.LastSeen = time.Now().Unix()
+
+		if err := UpdatePeer(db, *peer); err != nil {
+			return fmt.Errorf("failed to update peer %s: %w", deviceID, err)
+		}
 	}
-	println("Added Peer")
 	return nil
 }
 
-func FileUpdateRequest(filePath, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
-	// Connect to the peer
-	client, conn := connectToPeer(IP, "john", "50051")
-	defer conn.Close()
+func (s *server) PromotePeerToPending(deviceID string) error {
+	peer, ok := s.user.Peers[deviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", deviceID)
+	}
+	peer.State = "pending"
+	return UpdatePeer(s.db, *peer)
+}
 
-	// Give user 10 seconds to respond
+func (s *server) PromotePeerToTrusted(deviceID string) error {
+	peer, ok := s.user.Peers[deviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", deviceID)
+	}
+	peer.State = "trusted"
+	return UpdatePeer(s.db, *peer)
+}
+
+func FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
+	client, conn := connectToPeer(IP, "test", id)
+	if conn != nil {
+		defer conn.Close()
+	}
+	if client == nil {
+		return nil, fmt.Errorf("connectToPeer failed")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Send the gRPC request
 	resp, err := client.RequestUpdate(ctx, &pb.UpdateRequest{
 		FilePath:  filePath,
 		IP:        IP,
 		Timestamp: timestamp,
 	})
 
-	// Handle error or return response
 	if err != nil {
 		return nil, fmt.Errorf("failed to contact peer %s: %w", IP, err)
 	}
 
 	log.Printf("Peer %s responded: accepted=%v, message=%s", IP, resp.GetAccepted(), resp.GetMessage())
 	return resp, nil
-}
-
-func (s *server) RequestUpdate(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
-	filePath := req.FilePath
-
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
-	}
-
-	localModTime := fileInfo.ModTime()
-	remoteTimestamp := req.Timestamp.AsTime()
-
-	if remoteTimestamp.After(localModTime) {
-		fmt.Println("Remote version is newer → accept update")
-		return &pb.UpdateResponse{Accepted: true, Message: "Will accept update"}, nil
-	}
-
-	fmt.Println("Local version is newer or equal → reject update")
-	return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
-}
-
-func (s *server) SendFileUpdate(filePath, IP string) (*pb.UpdateResponse, error) {
-	// Connect to the peer
-	client, conn := connectToPeer(IP, "john", "50051")
-	defer conn.Close()
-
-	// Give user 10 seconds to respond
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	f, err := os.Open(filePath)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-	}
-
-	fileInfo, err := os.Stat(filePath)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-
-	buf := make([]byte, 1024)
-
-	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-
-	modTime := fileInfo.ModTime()              // time.Time
-	protoTimestamp := timestamppb.New(modTime) // *timestamppb.Timestamp
-
-	// Send the gRPC request
-	resp, err := client.ReceiveUpdatedFile(ctx, &pb.FileUpdate{
-		Data:      buf[:n],
-		FilePath:  filePath,
-		Timestamp: protoTimestamp,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-	if !resp.Received {
-		return &pb.UpdateResponse{Accepted: false, Message: "Update not needed"}, nil
-	}
-
-	return &pb.UpdateResponse{Accepted: true, Message: "Update not needed"}, nil
-}
-
-func (s *server) ReceiveUpdatedFile(ctx context.Context, req *pb.FileUpdate) (*pb.Ack, error) {
-	os.WriteFile(req.FilePath, req.Data, 0644) // Overwrites or creates the file
-	return nil, nil
 }
