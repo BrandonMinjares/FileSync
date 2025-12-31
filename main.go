@@ -186,36 +186,6 @@ func main() {
 	s := grpc.NewServer()
 	srv := NewServer(db, user, watcher)
 
-	// Start watching for file system events and handle them
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				fmt.Printf("File event: %s\n", event)
-
-				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-					fmt.Printf("Modified or created file: %s\n", event.Name)
-					// Update local DB state
-					if err := srv.UpdateFileStateInBucket(event.Name); err != nil {
-						log.Printf("Failed to update file state: %v", err)
-					}
-					// Notify peers about the change
-					if err := srv.NotifySharedFolderUsers(event.Name); err != nil {
-						log.Printf("Failed to notify peers: %v", err)
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Printf("Watcher error: %v", err)
-			}
-		}
-	}()
-
 	pb.RegisterFileSyncServiceServer(s, srv)
 
 	// Start gRPC server
@@ -248,13 +218,7 @@ func main() {
 		}
 	}()
 
-	// CLI loop
-
-	reader := bufio.NewReader(os.Stdin)
-	// Wait for the server to spin up
-	time.Sleep(time.Second * 2)
-
-	// Listen for events
+	// Start watching for file system events and handle them
 	go func() {
 		for {
 			select {
@@ -262,35 +226,33 @@ func main() {
 				if !ok {
 					return
 				}
-				fmt.Println("EVENT:", event.Name)
-				if event.Op&fsnotify.Create == fsnotify.Create {
-					fmt.Println("File created:", event.Name)
-				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					info, err := os.Stat(event.Name)
-					if err != nil {
-						fmt.Println("Error:", err)
-						return
-					}
-					fmt.Println("File Name:", info.Name())
+				fmt.Printf("File event: %s\n", event)
 
-					srv.UpdateFileStateInBucket(event.Name)
-					srv.NotifySharedFolderUsers(event.Name)
-				}
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					fmt.Println("File deleted:", event.Name)
-				}
-				if event.Op&fsnotify.Rename == fsnotify.Rename {
-					fmt.Println("File renamed:", event.Name)
+				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+					fmt.Printf("Modified or created file: %s\n", event.Name)
+					// Update local DB state
+					if err := srv.UpdateFileStateInBucket(event.Name); err != nil {
+						log.Printf("Failed to update file state: %v", err)
+					}
+					// Notify peers about the change
+					if err := srv.NotifySharedFolderUsers(event.Name); err != nil {
+						log.Printf("Failed to notify peers: %v", err)
+					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				fmt.Println("ERROR:", err)
+				log.Printf("Watcher error: %v", err)
 			}
 		}
 	}()
+
+	// CLI loop
+
+	reader := bufio.NewReader(os.Stdin)
+	// Wait for the server to spin up
+	time.Sleep(time.Second * 2)
 
 	for {
 		fmt.Print(`
@@ -329,19 +291,32 @@ func main() {
 			deviceID, _ := reader.ReadString('\n')
 			deviceID = strings.TrimSpace(deviceID)
 
-			if err := srv.PromotePeerToPending(deviceID); err != nil {
-				log.Printf("Error moving peer to pending: %v", err)
-			} else {
-				fmt.Println("Peer promoted to pending. Awaiting mutual approval.")
-				// check if pending in other user's side
-				// srv.RequestConnection()
+			peer, ok := user.Peers[deviceID]
+			if !ok {
+				fmt.Println("Unknown peer")
+				break
 			}
+
+			client, conn := connectToPeer(peer.Addresses[0], user.Name, deviceID)
+			if client == nil {
+				fmt.Println("Connection rejected or failed")
+				break
+			}
+			defer conn.Close()
+
+			// Only now promote
+			if err := srv.PromotePeerToTrusted(deviceID); err != nil {
+				log.Println("Failed to promote peer:", err)
+			} else {
+				fmt.Println("Peer connected and trusted")
+			}
+
 		case "3":
 			fmt.Println("Connected peers:")
 			i := 1
 			peerIPs := []string{}
 			for ip, peer := range user.Peers {
-				fmt.Printf("%d. %s (%s)\n", i, peer.Name, ip)
+				fmt.Printf("%d. %s %s\n", i, peer.Name, ip)
 				peerIPs = append(peerIPs, ip)
 				i++
 			}
@@ -373,10 +348,7 @@ func main() {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
 			srv.AddUserToSharedFolder(folder, string(peer.DeviceID))
-		case "4":
-			for key := range user.Peers {
-				fmt.Printf("Peer: %s, Name: %s", user.Peers[key].DeviceID, user.Peers[key].Name)
-			}
+
 		case "5":
 			srv.GetFoldersInBucket("shared_folders")
 		default:

@@ -174,7 +174,7 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 
 // connectToPeer expects target to be "host:port"
 func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	conn, err := grpc.Dial(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("Could not connect to %s: %v", target, err)
 		return nil, nil
@@ -207,7 +207,7 @@ func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.Cli
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
-	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "pending" {
+	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "seen" {
 		fmt.Printf("Do you want to accept connection from %s (y/n)?\n", req.RequesterName)
 
 		reader := bufio.NewReader(os.Stdin)
@@ -249,6 +249,8 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 
 		if err := UpdatePeer(db, *newPeer); err != nil {
 			return fmt.Errorf("failed to persist peer %s: %w", deviceID, err)
+		} else {
+			log.Printf("Added peer to Peers list")
 		}
 
 	} else if peer.State == "seen" {
