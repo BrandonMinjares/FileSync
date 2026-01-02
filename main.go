@@ -350,7 +350,7 @@ func main() {
 			peerIP := peerIPs[choice-1]
 			peer := user.Peers[peerIP]
 
-			client, conn := connectToPeer(string(peer.DeviceID), peer.Name, "50051")
+			client, conn := connectToPeer(peer.Addresses[0], peer.Name, EncodePeerID(peer.DeviceID))
 			if client == nil {
 				log.Fatal("Failed to connect to peer")
 			}
@@ -365,7 +365,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
-			srv.AddUserToSharedFolder(folder, string(peer.DeviceID))
+			srv.AddUserToSharedFolder(folder, EncodePeerID(peer.DeviceID))
 		case "4":
 			fmt.Println("Connected peers:")
 			i := 1
@@ -373,6 +373,7 @@ func main() {
 				fmt.Printf("%d. %s %s\n", i, peer.Name, ip)
 				i++
 			}
+
 		case "5":
 			srv.GetFoldersInBucket("shared_folders")
 		default:

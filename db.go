@@ -86,6 +86,24 @@ func LoadPeers(db *bolt.DB, user *User) error {
 	})
 }
 
+func ListPeers(db *bolt.DB) (map[string][]byte, error) {
+	peers := make(map[string][]byte)
+
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return nil // no peers yet
+		}
+
+		return b.ForEach(func(k, v []byte) error {
+			peers[string(k)] = append([]byte{}, v...)
+			return nil
+		})
+	})
+
+	return peers, err
+}
+
 func InitSharedFolders(tx *bolt.Tx) error {
 	_, err := tx.CreateBucketIfNotExists([]byte("shared_folders"))
 	if err != nil {
