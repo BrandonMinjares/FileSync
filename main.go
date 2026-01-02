@@ -176,6 +176,11 @@ func main() {
 		Peers:  make(map[string]*PeerInfo),
 	}
 
+	err = LoadPeers(db, user)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Watches for changes in File State
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -187,14 +192,18 @@ func main() {
 	srv := NewServer(db, user, watcher)
 
 	pb.RegisterFileSyncServiceServer(s, srv)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "50051"
+	}
 
 	// Start gRPC server
 	go func() {
-		lis, err := net.Listen("tcp", ":50051")
+		lis, err := net.Listen("tcp", ":"+port)
 		if err != nil {
 			log.Fatalf("Failed to listen: %v", err)
 		}
-		log.Println("Starting gRPC server on port 50051...")
+		log.Println("Starting gRPC server on port " + port)
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("Failed to serve: %v", err)
 		}
@@ -348,7 +357,13 @@ func main() {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
 			srv.AddUserToSharedFolder(folder, string(peer.DeviceID))
-
+		case "4":
+			fmt.Println("Connected peers:")
+			i := 1
+			for ip, peer := range user.Peers {
+				fmt.Printf("%d. %s %s\n", i, peer.Name, ip)
+				i++
+			}
 		case "5":
 			srv.GetFoldersInBucket("shared_folders")
 		default:
