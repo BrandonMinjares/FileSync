@@ -147,7 +147,11 @@ func appendIfMissing(slice []string, addr string) []string {
 
 func main() {
 	// Open DB
-	db, err := bolt.Open("my.db", 0600, nil)
+	dbPath := os.Getenv("DB")
+	if dbPath == "" {
+		dbPath = "my.db"
+	}
+	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -158,8 +162,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Load or generate keys
-	kp, err := keys.GenerateOrLoad("")
+	keyPath := os.Getenv("KEYS")
+	if keyPath == "" {
+		keyPath = "keys"
+	}
+
+	kp, err := keys.GenerateOrLoad(keyPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,6 +200,7 @@ func main() {
 	srv := NewServer(db, user, watcher)
 
 	pb.RegisterFileSyncServiceServer(s, srv)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "50051"
