@@ -244,7 +244,6 @@ func main() {
 				if !ok {
 					return
 				}
-				fmt.Printf("File event: %s\n", event)
 
 				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 					fmt.Printf("Modified or created file: %s\n", event.Name)
@@ -315,7 +314,7 @@ func main() {
 				break
 			}
 
-			client, conn := connectToPeer(peer.Addresses[0], user.Name, deviceID)
+			client, conn := connectToPeer(peer.Addresses[0], user.Name, EncodePeerID(user.SelfID))
 			if client == nil {
 				fmt.Println("Connection rejected or failed")
 				break
