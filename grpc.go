@@ -172,9 +172,19 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 	return nil
 }
 
-// connectToPeer expects target to be "host:port"
-func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func (s *server) connectToPeer(target, requesterName string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+	selfID := EncodePeerID(s.user.SelfID)
+	selfAddr := getLocalIP() + ":50051"
+
+	if target == selfAddr {
+		log.Println("Refusing to dial self address:", target)
+		return nil, nil
+	}
+
+	conn, err := grpc.NewClient(
+		target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		log.Printf("Could not connect to %s: %v", target, err)
 		return nil, nil
@@ -182,25 +192,24 @@ func connectToPeer(target, name, id string) (pb.FileSyncServiceClient, *grpc.Cli
 
 	client := pb.NewFileSyncServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
-		RequesterId:   id,
-		RequesterName: name,
+		RequesterId:   selfID,
+		RequesterName: requesterName,
 	})
 	if err != nil {
-		log.Printf("Connection request failed: %v", err)
-		conn.Close()
-		return nil, nil
-	}
-	if !res.Accepted {
-		log.Println("Connection rejected by peer:", res.Message)
 		conn.Close()
 		return nil, nil
 	}
 
-	log.Println("Connection accepted:", res.Message)
+	if !res.Accepted {
+		log.Println("Connection rejected:", res.Message)
+		conn.Close()
+		return nil, nil
+	}
+
 	return client, conn
 }
 
@@ -282,8 +291,8 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 	return UpdatePeer(s.db, *peer)
 }
 
-func FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
-	client, conn := connectToPeer(IP, "test", id)
+func (s *server) FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
+	client, conn := s.connectToPeer(IP, s.user.Name)
 	if conn != nil {
 		defer conn.Close()
 	}

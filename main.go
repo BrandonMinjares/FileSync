@@ -69,7 +69,7 @@ func getLocalIP() string {
 }
 
 // announcePresence broadcasts this peer’s DeviceID and listening port
-func announcePresence(deviceID string, port int) {
+func announcePresence(deviceID, port string) {
 	addr, err := net.ResolveUDPAddr("udp", mcastAddr)
 	if err != nil {
 		log.Printf("ResolveUDPAddr error: %v", err)
@@ -224,7 +224,7 @@ func main() {
 	// Start announcer
 	go func() {
 		for {
-			announcePresence(id, 50051)
+			announcePresence(id, port)
 			time.Sleep(2 * time.Second)
 		}
 	}()
@@ -304,6 +304,11 @@ func main() {
 			fmt.Printf("Successfully watching %s", folder)
 
 		case "2":
+			fmt.Println("Known peers on receiver:")
+			for id, p := range user.Peers {
+				fmt.Println(id, p.State, p.Addresses)
+			}
+
 			fmt.Print("Enter Device ID to connect with: ")
 			deviceID, _ := reader.ReadString('\n')
 			deviceID = strings.TrimSpace(deviceID)
@@ -314,7 +319,7 @@ func main() {
 				break
 			}
 
-			client, conn := connectToPeer(peer.Addresses[0], user.Name, EncodePeerID(user.SelfID))
+			client, conn := srv.connectToPeer(peer.Addresses[0], user.Name)
 			if client == nil {
 				fmt.Println("Connection rejected or failed")
 				break
@@ -349,7 +354,7 @@ func main() {
 			peerIP := peerIPs[choice-1]
 			peer := user.Peers[peerIP]
 
-			client, conn := connectToPeer(peer.Addresses[0], peer.Name, EncodePeerID(peer.DeviceID))
+			client, conn := srv.connectToPeer(peer.Addresses[0], user.Name)
 			if client == nil {
 				log.Fatal("Failed to connect to peer")
 			}
