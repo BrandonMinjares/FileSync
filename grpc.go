@@ -242,17 +242,14 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 
 func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 	if peer, exists := user.Peers[deviceID]; !exists {
-		decoded, err := DecodePeerID(deviceID)
-		if err != nil {
-			log.Printf("warning: failed to decode deviceID %s: %v", deviceID, err)
-			decoded = PeerID(deviceID)
-		}
 		newPeer := &PeerInfo{
-			DeviceID:  decoded,
+			DeviceID:  deviceID, // already base32
 			Addresses: []string{deviceAddress},
 			State:     "seen",
 			LastSeen:  time.Now().Unix(),
 		}
+		user.Peers[deviceID] = newPeer
+
 		user.Peers[deviceID] = newPeer
 		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
 

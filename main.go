@@ -35,10 +35,10 @@ type User struct {
 }
 
 type PeerInfo struct {
-	DeviceID  PeerID   `json:"device_id"`
+	DeviceID  string   `json:"device_id"` // BASE32 STRING
 	Name      string   `json:"name"`
 	Addresses []string `json:"addresses"`
-	State     string   `json:"state"` // "seen", "pending", "trusted"
+	State     string   `json:"state"`
 	LastSeen  int64    `json:"last_seen"`
 }
 
@@ -369,7 +369,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("Error sharing folder: %v", err)
 			}
-			srv.AddUserToSharedFolder(folder, EncodePeerID(peer.DeviceID))
+			srv.AddUserToSharedFolder(folder, peer.DeviceID)
 		case "4":
 			fmt.Println("Connected peers:")
 			i := 1
