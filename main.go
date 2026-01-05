@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
@@ -319,18 +320,35 @@ func main() {
 				break
 			}
 
-			client, conn := srv.connectToPeer(peer.Addresses[0], user.Name)
+			client, conn := srv.connectToPeer(peer.Addresses[0])
 			if client == nil {
-				fmt.Println("Connection rejected or failed")
+				fmt.Println("Could not connect")
 				break
 			}
 			defer conn.Close()
 
-			// Only now promote
-			if err := srv.PromotePeerToTrusted(deviceID); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			resp, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
+				RequesterId:   EncodePeerID(user.SelfID),
+				RequesterName: user.Name,
+			})
+			if err != nil {
+				fmt.Println("Connection request failed:", err)
+				break
+			}
+
+			if !resp.Accepted {
+				fmt.Println("Connection denied:", resp.Message)
+				break
+			}
+
+			// ✅ Only now promote
+			if err := srv.PromotePeerToPending(deviceID); err != nil {
 				log.Println("Failed to promote peer:", err)
 			} else {
-				fmt.Println("Peer connected and trusted")
+				fmt.Println("Peer connection is now pending")
 			}
 
 		case "3":
@@ -354,7 +372,7 @@ func main() {
 			peerIP := peerIPs[choice-1]
 			peer := user.Peers[peerIP]
 
-			client, conn := srv.connectToPeer(peer.Addresses[0], user.Name)
+			client, conn := srv.connectToPeer(peer.Addresses[0])
 			if client == nil {
 				log.Fatal("Failed to connect to peer")
 			}
@@ -374,7 +392,7 @@ func main() {
 			fmt.Println("Connected peers:")
 			i := 1
 			for ip, peer := range user.Peers {
-				fmt.Printf("%d. %s %s\n", i, peer.Name, ip)
+				fmt.Printf("%d. %s %s %s\n", i, peer.Name, ip, peer.State)
 				i++
 			}
 

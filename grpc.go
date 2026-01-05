@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	pb "synthesize/protos"
 	"time"
 
@@ -172,12 +170,9 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 	return nil
 }
 
-func (s *server) connectToPeer(target, requesterName string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	selfID := EncodePeerID(s.user.SelfID)
-	selfAddr := getLocalIP() + ":50051"
-
-	if target == selfAddr {
-		log.Println("Refusing to dial self address:", target)
+func (s *server) connectToPeer(target string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
+	if target == getLocalIP()+":50051" {
+		log.Println("Refusing to dial self")
 		return nil, nil
 	}
 
@@ -190,48 +185,21 @@ func (s *server) connectToPeer(target, requesterName string) (pb.FileSyncService
 		return nil, nil
 	}
 
-	client := pb.NewFileSyncServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	res, err := client.RequestConnection(ctx, &pb.ConnectionRequest{
-		RequesterId:   selfID,
-		RequesterName: requesterName,
-	})
-	if err != nil {
-		conn.Close()
-		return nil, nil
-	}
-
-	if !res.Accepted {
-		log.Println("Connection rejected:", res.Message)
-		conn.Close()
-		return nil, nil
-	}
-
-	return client, conn
+	return pb.NewFileSyncServiceClient(conn), conn
 }
 
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
 	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "seen" {
-		fmt.Printf("Do you want to accept connection from %s (y/n)?\n", req.RequesterName)
-
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "y" {
-			if err := s.PromotePeerToTrusted(req.RequesterId); err != nil {
-				log.Printf("failed to promote to trusted: %v", err)
-				return &pb.ConnectionResponse{Accepted: false, Message: "Internal error"}, nil
-			}
-			return &pb.ConnectionResponse{
-				Accepted: true,
-				Message:  "Connection accepted!",
-			}, nil
+		if err := s.PromotePeerToPending(req.RequesterId); err != nil {
+			log.Printf("failed to promote to trusted: %v", err)
+			return &pb.ConnectionResponse{Accepted: false, Message: "Internal error"}, nil
 		}
+		return &pb.ConnectionResponse{
+			Accepted: true,
+			Message:  "Connection pending!",
+		}, nil
 	}
 
 	return &pb.ConnectionResponse{
@@ -289,7 +257,7 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 }
 
 func (s *server) FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
-	client, conn := s.connectToPeer(IP, s.user.Name)
+	client, conn := s.connectToPeer(IP)
 	if conn != nil {
 		defer conn.Close()
 	}
