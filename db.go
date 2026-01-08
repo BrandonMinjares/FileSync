@@ -175,6 +175,18 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 	return nil
 }
 
+func (s *server) GetPendingPeers() ([]*PeerInfo, error) {
+	Peers := []*PeerInfo{}
+
+	for _, peer := range s.user.Peers {
+		if peer.State == PENDING_ACCEPTANCE {
+			Peers = append(Peers, peer)
+		}
+	}
+
+	return Peers, nil
+}
+
 func (s *server) PromotePeerToPendingApproval(deviceID string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("peers"))

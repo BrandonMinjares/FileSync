@@ -404,10 +404,15 @@ func main() {
 				i++
 			}
 
-		case "5":
-			srv.GetFoldersInBucket("shared_folders")
-
 		case "6":
+			peers, err := srv.GetPendingPeers()
+			if err != nil {
+				log.Fatalf("could not get pending peers: %v", err)
+			}
+
+			for _, peer := range peers {
+				fmt.Printf("%s %s\n", peer.DeviceID, peer.State)
+			}
 
 		default:
 			fmt.Println("Exiting program")
