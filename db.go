@@ -175,7 +175,7 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 	return nil
 }
 
-func (s *server) PromotePeerToPending(deviceID string) error {
+func (s *server) PromotePeerToPendingApproval(deviceID string) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("peers"))
 		if b == nil {
@@ -193,6 +193,40 @@ func (s *server) PromotePeerToPending(deviceID string) error {
 		}
 
 		peer.State = PENDING_APPROVAL
+
+		data, err := json.Marshal(peer)
+		if err != nil {
+			return err
+		}
+
+		if err := b.Put([]byte(deviceID), data); err != nil {
+			return err
+		}
+
+		// update in-memory cache
+		s.user.Peers[deviceID] = &peer
+		return nil
+	})
+}
+
+func (s *server) PromotePeerToPendingAcceptance(deviceID string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("peers bucket missing")
+		}
+
+		raw := b.Get([]byte(deviceID))
+		if raw == nil {
+			return fmt.Errorf("peer %s not found", deviceID)
+		}
+
+		var peer PeerInfo
+		if err := json.Unmarshal(raw, &peer); err != nil {
+			return err
+		}
+
+		peer.State = PENDING_ACCEPTANCE
 
 		data, err := json.Marshal(peer)
 		if err != nil {

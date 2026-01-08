@@ -191,8 +191,8 @@ func (s *server) connectToPeer(target string) (pb.FileSyncServiceClient, *grpc.C
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 
-	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == "seen" {
-		if err := s.PromotePeerToPending(req.RequesterId); err != nil {
+	if pi, exists := s.user.Peers[req.RequesterId]; exists && pi.State == SEEN {
+		if err := s.PromotePeerToPendingAcceptance(req.RequesterId); err != nil {
 			log.Printf("failed to promote to trusted: %v", err)
 			return &pb.ConnectionResponse{Accepted: false, Message: "Internal error"}, nil
 		}

@@ -353,7 +353,7 @@ func main() {
 				break
 			}
 
-			if err := srv.PromotePeerToPending(deviceID); err != nil {
+			if err := srv.PromotePeerToPendingApproval(deviceID); err != nil {
 				log.Println("Failed to promote peer:", err)
 			} else {
 				fmt.Println("Peer connection is now pending")
