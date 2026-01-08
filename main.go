@@ -20,6 +20,14 @@ import (
 	"google.golang.org/grpc"
 )
 
+const ( // Peer States
+	SEEN               = "seen"
+	TRUSTED            = "trusted"
+	PENDING_APPROVAL   = "pending_approval"
+	PENDING_ACCEPTANCE = "pending_acceptance"
+	REVOKED            = "revoked"
+)
+
 type PeerID []byte // ed25519.PublicKey bytes
 
 type Folder struct {

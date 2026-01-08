@@ -151,12 +151,11 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 		newPeer := &PeerInfo{
 			DeviceID:  deviceID, // already base32
 			Addresses: []string{deviceAddress},
-			State:     "seen",
+			State:     SEEN,
 			LastSeen:  time.Now().Unix(),
 		}
 		user.Peers[deviceID] = newPeer
 
-		user.Peers[deviceID] = newPeer
 		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
 
 		if err := UpdatePeer(db, *newPeer); err != nil {
@@ -165,7 +164,7 @@ func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
 			log.Printf("Added peer to Peers list")
 		}
 
-	} else if peer.State == "seen" {
+	} else if peer.State == SEEN {
 		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
 		peer.LastSeen = time.Now().Unix()
 
@@ -193,7 +192,7 @@ func (s *server) PromotePeerToPending(deviceID string) error {
 			return err
 		}
 
-		peer.State = "pending"
+		peer.State = PENDING_APPROVAL
 
 		data, err := json.Marshal(peer)
 		if err != nil {
@@ -215,7 +214,7 @@ func (s *server) PromotePeerToTrusted(deviceID string) error {
 	if !ok {
 		return fmt.Errorf("peer %s not found", deviceID)
 	}
-	peer.State = "trusted"
+	peer.State = TRUSTED
 	return UpdatePeer(s.db, *peer)
 }
 
