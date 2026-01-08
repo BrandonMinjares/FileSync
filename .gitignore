@@ -1,9 +1,7 @@
-test.txt
-./tmp
-my.db
-./newfolder
-.filesync
+tmp/
+.filesync/
+keys1/
+keys2/
 my1.db
 my2.db
-/keys1
-/keys2
+synthesize

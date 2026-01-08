@@ -280,6 +280,7 @@ func main() {
 				3. Share folder with user
 				4. List connected users
 				5. List all folders in bucket
+				6. Approve pending connections
 				Type "exit" to quit
 				> `)
 
@@ -344,7 +345,6 @@ func main() {
 				break
 			}
 
-			// ✅ Only now promote
 			if err := srv.PromotePeerToPending(deviceID); err != nil {
 				log.Println("Failed to promote peer:", err)
 			} else {
@@ -398,6 +398,9 @@ func main() {
 
 		case "5":
 			srv.GetFoldersInBucket("shared_folders")
+
+		case "6":
+
 		default:
 			fmt.Println("Exiting program")
 			return

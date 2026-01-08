@@ -208,54 +208,6 @@ func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionReques
 	}, nil
 }
 
-func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
-	if peer, exists := user.Peers[deviceID]; !exists {
-		newPeer := &PeerInfo{
-			DeviceID:  deviceID, // already base32
-			Addresses: []string{deviceAddress},
-			State:     "seen",
-			LastSeen:  time.Now().Unix(),
-		}
-		user.Peers[deviceID] = newPeer
-
-		user.Peers[deviceID] = newPeer
-		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
-
-		if err := UpdatePeer(db, *newPeer); err != nil {
-			return fmt.Errorf("failed to persist peer %s: %w", deviceID, err)
-		} else {
-			log.Printf("Added peer to Peers list")
-		}
-
-	} else if peer.State == "seen" {
-		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
-		peer.LastSeen = time.Now().Unix()
-
-		if err := UpdatePeer(db, *peer); err != nil {
-			return fmt.Errorf("failed to update peer %s: %w", deviceID, err)
-		}
-	}
-	return nil
-}
-
-func (s *server) PromotePeerToPending(deviceID string) error {
-	peer, ok := s.user.Peers[deviceID]
-	if !ok {
-		return fmt.Errorf("peer %s not found", deviceID)
-	}
-	peer.State = "pending"
-	return UpdatePeer(s.db, *peer)
-}
-
-func (s *server) PromotePeerToTrusted(deviceID string) error {
-	peer, ok := s.user.Peers[deviceID]
-	if !ok {
-		return fmt.Errorf("peer %s not found", deviceID)
-	}
-	peer.State = "trusted"
-	return UpdatePeer(s.db, *peer)
-}
-
 func (s *server) FileUpdateRequest(filePath, id, IP string, timestamp *timestamppb.Timestamp) (*pb.UpdateResponse, error) {
 	client, conn := s.connectToPeer(IP)
 	if conn != nil {

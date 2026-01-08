@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,6 +144,79 @@ func UpdatePeer(db *bolt.DB, peer PeerInfo) error {
 
 		return b.Put([]byte(peer.DeviceID), peerSerialized)
 	})
+}
+
+func AddPeer(db *bolt.DB, user *User, deviceID, deviceAddress string) error {
+	if peer, exists := user.Peers[deviceID]; !exists {
+		newPeer := &PeerInfo{
+			DeviceID:  deviceID, // already base32
+			Addresses: []string{deviceAddress},
+			State:     "seen",
+			LastSeen:  time.Now().Unix(),
+		}
+		user.Peers[deviceID] = newPeer
+
+		user.Peers[deviceID] = newPeer
+		log.Printf("Discovered new peer %s at %s", deviceID, deviceAddress)
+
+		if err := UpdatePeer(db, *newPeer); err != nil {
+			return fmt.Errorf("failed to persist peer %s: %w", deviceID, err)
+		} else {
+			log.Printf("Added peer to Peers list")
+		}
+
+	} else if peer.State == "seen" {
+		peer.Addresses = appendIfMissing(peer.Addresses, deviceAddress)
+		peer.LastSeen = time.Now().Unix()
+
+		if err := UpdatePeer(db, *peer); err != nil {
+			return fmt.Errorf("failed to update peer %s: %w", deviceID, err)
+		}
+	}
+	return nil
+}
+
+func (s *server) PromotePeerToPending(deviceID string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("peers bucket missing")
+		}
+
+		raw := b.Get([]byte(deviceID))
+		if raw == nil {
+			return fmt.Errorf("peer %s not found", deviceID)
+		}
+
+		var peer PeerInfo
+		if err := json.Unmarshal(raw, &peer); err != nil {
+			return err
+		}
+
+		peer.State = "pending"
+
+		data, err := json.Marshal(peer)
+		if err != nil {
+			return err
+		}
+
+		if err := b.Put([]byte(deviceID), data); err != nil {
+			return err
+		}
+
+		// update in-memory cache
+		s.user.Peers[deviceID] = &peer
+		return nil
+	})
+}
+
+func (s *server) PromotePeerToTrusted(deviceID string) error {
+	peer, ok := s.user.Peers[deviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", deviceID)
+	}
+	peer.State = "trusted"
+	return UpdatePeer(s.db, *peer)
 }
 
 func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
@@ -326,6 +400,23 @@ func (s *server) GetFoldersInBucket(bucket string) error {
 			fmt.Printf("Bucket %q is empty\n", bucket)
 		}
 		return nil
+	})
+}
+
+func (s *server) GetPendingConnections(peer PeerInfo) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("bucket %s does not exist", "peers")
+		}
+
+		peerSerialized, err := json.Marshal(peer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal peer info: %w", err)
+		}
+
+		// Use the DeviceID as the key
+		return b.Put([]byte(peer.DeviceID), peerSerialized)
 	})
 }
 
