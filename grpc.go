@@ -188,6 +188,11 @@ func (s *server) connectToPeer(target string) (pb.FileSyncServiceClient, *grpc.C
 	return pb.NewFileSyncServiceClient(conn), conn
 }
 
+// Peer has accepted User's pending request and now notifies User to then update Peer to trusted
+func (s *server) notifyPeerTrusted(deviceID string) error {
+	return nil
+}
+
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	fmt.Printf("Incoming connection request from %s (%s)\n", req.RequesterName, req.RequesterId)
 

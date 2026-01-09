@@ -409,9 +409,28 @@ func main() {
 			if err != nil {
 				log.Fatalf("could not get pending peers: %v", err)
 			}
+			fmt.Println("Pending peers:")
+			for index, peer := range peers {
+				fmt.Printf("%d) %s\t\t%s\n", index+1, peer.DeviceID, "pending approval")
+			}
+			fmt.Println("Enter a peer number to approve, or 'q' to return:")
 
-			for _, peer := range peers {
-				fmt.Printf("%s %s\n", peer.DeviceID, peer.State)
+			var choice int
+			fmt.Scanln(&choice)
+
+			if choice < 1 || choice > len(peers) {
+				fmt.Println("Invalid choice")
+				return
+			}
+
+			peer := peers[choice-1]
+			if err := srv.PromotePeerToTrusted(peer.DeviceID); err != nil {
+				log.Printf("failed to promote peer: %v", err)
+				return
+			}
+
+			if err := srv.notifyPeerTrusted(peer.DeviceID); err != nil {
+				log.Printf("peer promoted but gRPC notify failed: %v", err)
 			}
 
 		default:

@@ -256,12 +256,37 @@ func (s *server) PromotePeerToPendingAcceptance(deviceID string) error {
 }
 
 func (s *server) PromotePeerToTrusted(deviceID string) error {
-	peer, ok := s.user.Peers[deviceID]
-	if !ok {
-		return fmt.Errorf("peer %s not found", deviceID)
-	}
-	peer.State = TRUSTED
-	return UpdatePeer(s.db, *peer)
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("peers"))
+		if b == nil {
+			return fmt.Errorf("peers bucket missing")
+		}
+
+		raw := b.Get([]byte(deviceID))
+		if raw == nil {
+			return fmt.Errorf("peer %s not found", deviceID)
+		}
+
+		var peer PeerInfo
+		if err := json.Unmarshal(raw, &peer); err != nil {
+			return err
+		}
+
+		peer.State = TRUSTED
+
+		data, err := json.Marshal(peer)
+		if err != nil {
+			return err
+		}
+
+		if err := b.Put([]byte(deviceID), data); err != nil {
+			return err
+		}
+
+		// update in-memory cache
+		s.user.Peers[deviceID] = &peer
+		return err
+	})
 }
 
 func (s *server) AddFolderToBucket(folder, bucket string, watcher *fsnotify.Watcher) error {
