@@ -171,11 +171,6 @@ func (s *server) ShareFolder(folderPath string, client pb.FileSyncServiceClient)
 }
 
 func (s *server) connectToPeer(target string) (pb.FileSyncServiceClient, *grpc.ClientConn) {
-	if target == getLocalIP()+":50051" {
-		log.Println("Refusing to dial self")
-		return nil, nil
-	}
-
 	conn, err := grpc.NewClient(
 		target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -188,9 +183,66 @@ func (s *server) connectToPeer(target string) (pb.FileSyncServiceClient, *grpc.C
 	return pb.NewFileSyncServiceClient(conn), conn
 }
 
-// Peer has accepted User's pending request and now notifies User to then update Peer to trusted
-func (s *server) notifyPeerTrusted(deviceID string) error {
-	return nil
+// notifyPeerTrusted informs a peer that this user has accepted the trust request.
+// The peer will update this user to TRUSTED on their side.
+func (s *server) notifyPeerTrusted(peerDeviceID string) error {
+	fmt.Println(peerDeviceID)
+	peer, ok := s.user.Peers[peerDeviceID]
+	if !ok {
+		return fmt.Errorf("peer %s not found", peerDeviceID)
+	}
+	fmt.Println(peer)
+
+	if len(peer.Addresses) == 0 {
+		return fmt.Errorf("peer %s has no known addresses", peerDeviceID)
+	}
+
+	target := peer.Addresses[0]
+
+	client, conn := s.connectToPeer(target)
+	if client == nil {
+		return fmt.Errorf("failed to connect to peer %s at %s", peerDeviceID, target)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := client.NotifyTrusted(ctx, &pb.NotifyTrustedRequest{
+		RequesterId: EncodePeerID(s.user.SelfID),
+	})
+
+	return err
+}
+
+// NotifyTrusted is called by a peer to indicate they have accepted
+// this user's connection request.
+func (s *server) NotifyTrusted(
+	ctx context.Context,
+	req *pb.NotifyTrustedRequest,
+) (*pb.Ack, error) {
+	requesterID := req.GetRequesterId()
+	fmt.Println("In notify trsuted")
+	fmt.Println(requesterID)
+
+	if requesterID == "" {
+		return &pb.Ack{
+			Received: false,
+			Message:  "missing requester_id",
+		}, nil
+	}
+
+	if err := s.PromotePeerToTrusted(requesterID); err != nil {
+		return &pb.Ack{
+			Received: false,
+			Message:  err.Error(),
+		}, nil
+	}
+
+	return &pb.Ack{
+		Received: true,
+		Message:  "Peer marked as trusted",
+	}, nil
 }
 
 func (s *server) RequestConnection(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {

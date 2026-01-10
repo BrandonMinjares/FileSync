@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package filesyncpb;
-option go_package = "synthesize/protos";
+option go_package = "synthesize/protos;filesyncpb";
 
 import "google/protobuf/timestamp.proto";
 
@@ -15,7 +15,7 @@ message FileChunk {
 message FolderChunk {
   string foldername = 1;
   FileChunk file_chunk = 2;
-  string sender_ip = 3; // <-- new field
+  string sender_ip = 3;
 }
 
 message Ack {
@@ -44,6 +44,11 @@ message UpdateResponse {
   string message = 2;
 }
 
+message NotifyTrustedRequest {
+  // Device ID (base32) of the peer who accepted the connection
+  string requester_id = 1;
+}
+
 message FileUpdate {
   bytes data = 1;
   string filePath = 2;
@@ -59,4 +64,5 @@ service FileSyncService {
   rpc ReceiveFolder(stream FolderChunk) returns (Ack);
   rpc RequestUpdate(UpdateRequest) returns (UpdateResponse);
   rpc ReceiveUpdatedFile(FileUpdate) returns (Ack);
+  rpc NotifyTrusted(NotifyTrustedRequest) returns (Ack);
 }
